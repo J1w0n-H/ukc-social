@@ -43,8 +43,32 @@ export default async function RidesPage() {
     : { data: [] as { id: string; name: string }[] };
   const nameById = new Map((posters ?? []).map((p) => [p.id, p.name]));
 
+  // Each flight's ride pool (migration 0011) — may not exist yet either.
+  const flightIds = flights.map((f) => f.id);
+  const { data: pools } = flightIds.length
+    ? await supabase
+        .from("ride_pools")
+        .select("id, anchor_flight_id, capacity")
+        .in("anchor_flight_id", flightIds)
+    : { data: [] as { id: string; anchor_flight_id: string; capacity: number }[] };
+  const poolIds = (pools ?? []).map((p) => p.id);
+  const { data: members } = poolIds.length
+    ? await supabase.from("ride_members").select("pool_id, user_id").in("pool_id", poolIds)
+    : { data: [] as { pool_id: string; user_id: string }[] };
+
+  const memberCountByPool = new Map<string, number>();
+  const viewerInPool = new Set<string>();
+  for (const m of members ?? []) {
+    memberCountByPool.set(m.pool_id, (memberCountByPool.get(m.pool_id) ?? 0) + 1);
+    if (m.user_id === user.id) viewerInPool.add(m.pool_id);
+  }
+  const poolByFlight = new Map((pools ?? []).map((p) => [p.anchor_flight_id, p]));
+
   const toRow = (f: FlightRow): Row => {
     const t = new Date(f.scheduled_at).getTime();
+    const pool = poolByFlight.get(f.id);
+    const full = !!pool && (memberCountByPool.get(pool.id) ?? 0) >= pool.capacity;
+    const joined = !!pool && viewerInPool.has(pool.id);
     return {
       id: f.id,
       name: nameById.get(f.user_id) || "Someone",
@@ -55,6 +79,8 @@ export default async function RidesPage() {
       flightNumber: f.flight_no,
       scheduledMs: t,
       isMe: f.user_id === user.id,
+      full,
+      joined,
     };
   };
 
@@ -154,6 +180,7 @@ function RidesStyles() {
       }
       .arr-share span { margin-left: 2px; display: inline-block; transition: transform 0.15s ease; }
       .arr-share:hover span { transform: translateX(3px); }
+      .arr-share:disabled { opacity: 0.5; cursor: default; }
       .arr-done {
         align-self: center;
         min-height: 44px;

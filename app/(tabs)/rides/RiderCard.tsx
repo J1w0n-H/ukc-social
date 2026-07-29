@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { joinRide } from "@/app/actions/flights";
 
 export function RiderCard({
+  flightId,
   name,
   timeLabel,
   city,
@@ -10,8 +12,11 @@ export function RiderCard({
   airline,
   flightNumber,
   isMe = false,
+  full = false,
+  joined = false,
   inWindow = false,
 }: {
+  flightId: string;
   name: string;
   timeLabel: string;
   city: string;
@@ -19,9 +24,21 @@ export function RiderCard({
   airline: string;
   flightNumber: string;
   isMe?: boolean;
+  full?: boolean;
+  joined?: boolean;
   inWindow?: boolean;
 }) {
-  const [sent, setSent] = useState(false);
+  const [state, setState] = useState<"idle" | "joining" | "joined" | "full" | "error">(
+    joined ? "joined" : "idle",
+  );
+
+  async function join() {
+    setState("joining");
+    const res = await joinRide(flightId);
+    if (res.ok) setState("joined");
+    else if (res.full) setState("full");
+    else setState("error");
+  }
 
   return (
     <div className={`arr${inWindow ? " arr-hot" : ""}`}>
@@ -40,26 +57,31 @@ export function RiderCard({
         </div>
         {isMe ? (
           <span className="arr-done">Posted</span>
-        ) : sent ? (
-          <span className="arr-done">Noted</span>
+        ) : state === "joined" ? (
+          <span className="arr-done">Joined ✓</span>
+        ) : state === "full" || full ? (
+          <span className="arr-done">Full</span>
         ) : (
           <button
             type="button"
             className="arr-share"
-            onClick={() => setSent(true)}
+            onClick={join}
+            disabled={state === "joining"}
             aria-label={`Share a ride with ${name}`}
           >
-            Share <span aria-hidden>▸</span>
+            {state === "joining" ? "Joining…" : "Share"} <span aria-hidden>▸</span>
           </button>
         )}
       </div>
 
-      {sent && !isMe && (
+      {state === "joined" && !isMe && (
         <div className="arr-ack" role="status">
-          <span>Not sent to {name} yet — reach out to them directly for now.</span>
-          <button type="button" className="arr-undo" onClick={() => setSent(false)}>
-            Undo
-          </button>
+          <span>You&apos;re in this ride with {name} — split the car, find each other at MCO.</span>
+        </div>
+      )}
+      {state === "error" && !isMe && (
+        <div className="arr-ack" role="status">
+          <span>Couldn&apos;t join. Try again.</span>
         </div>
       )}
     </div>

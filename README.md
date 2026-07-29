@@ -72,6 +72,7 @@ re-apply all of them:
 | `0008_profiles_contact_rls.sql` | **Security fix.** Tightens `profiles` SELECT so only the owner or someone who shares a channel with them can read a row — closes a gap where any signed-in user (including guests) could read anyone's kakao/linkedin/dietary/birthday directly, bypassing the app's "contacts unlock only when you share a table" gate. Apply this one promptly. |
 | `0009_event_stay.sql` | `profiles.event_id`/`stay_start`/`stay_end` (onboarding's Event & stay step) + adds the stay columns to `directory_profiles` |
 | `0010_hi_requests.sql` | `hi_requests` table + RLS — People's "Say hi" request, deliberately not wired into `shares_channel()` |
+| `0011_ride_join.sql` | Links `ride_pools` to `flights` (`anchor_flight_id`) + adds the missing insert policy — Rides' "Share" now really joins a pool (capacity 4, closes once full) instead of being a client-only stub |
 
 Apply via the Supabase dashboard SQL editor (paste each file, Run), or the Supabase CLI.
 
@@ -155,7 +156,8 @@ bank in `lib/groupName.ts`, keyed off the group's shared interests/field.
 you to the daily 1:1 pool; matching logic lives in `lib/mentorMatch.ts`.
 
 **Contact unlock:** KakaoTalk / LinkedIn are hidden in the directory until you and the other
-person share a *meal group*, enforced in the DB by `can_see_contact()` / `shares_channel()`.
-`shares_channel()` also checks the legacy `ride_members` table, but the current Rides flow
-(self-reported `flights` + client-side "Share") doesn't write to it yet, so riding together
-doesn't unlock contacts today.
+person share a *meal group* **or a ride pool**, enforced in the DB by `can_see_contact()` /
+`shares_channel()`. Since `0011`, joining someone's flight on Rides writes a real
+`ride_members` row (capacity 4, same table `shares_channel()` already checked but nothing
+used to populate), so people who share a ride now unlock contacts too — same mechanism as
+sharing a table, no extra code needed for it.

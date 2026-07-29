@@ -14,6 +14,8 @@ export type Row = {
   flightNumber: string;
   scheduledMs: number;
   isMe: boolean;
+  full: boolean;
+  joined: boolean;
 };
 
 const WINDOW_MS = 30 * 60_000; // people within 30 min of you share a car
@@ -67,6 +69,7 @@ export function Board({ arrivals, departures }: { arrivals: Row[]; departures: R
             {rows.map((r) => (
               <RiderCard
                 key={r.id}
+                flightId={r.id}
                 name={r.name}
                 timeLabel={r.timeLabel}
                 city={r.city}
@@ -74,6 +77,8 @@ export function Board({ arrivals, departures }: { arrivals: Row[]; departures: R
                 airline={r.airline}
                 flightNumber={r.flightNumber}
                 isMe={r.isMe}
+                full={r.full}
+                joined={r.joined}
                 inWindow={!!mine && !r.isMe && Math.abs(r.scheduledMs - mine.scheduledMs) <= WINDOW_MS}
               />
             ))}

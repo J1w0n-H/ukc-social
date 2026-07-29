@@ -1,6 +1,29 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-29 (live end-to-end verification on a new Supabase project)_
+_Last updated: 2026-07-29 (Rides "Share" is now a real join)_
+
+### Update — 2026-07-29 Rides "Share" → real ride-pool join
+
+Rides' "Share" button was a `useState`-only stub (fixed to stop *lying* about it in an
+earlier pass, but still didn't do anything). It's now a real join, reusing `ride_pools`/
+`ride_members` — tables that existed since `0001` but nothing ever wrote to:
+
+- `submitFlight()` now opens (or reuses) the posted flight's own pool and seats the poster
+  in it. Migration `0011` adds `ride_pools.anchor_flight_id` (unique, → `flights`) plus the
+  missing insert policy (`0001` only ever granted `select` on `ride_pools`).
+- New `joinRide(flightId)` action: finds the flight's pool, checks the member count against
+  `ride_pools.capacity` (default 4), and either seats the joiner or returns `full`. The
+  board hides the join action and shows "Full" once capacity's hit — "join, closes at 4,"
+  no separate pool-creation step for users to think about.
+- Side effect, not additional code: `shares_channel()` already checked `ride_members` for
+  contact-unlock (`0008`) — it just never had real rows to find. Sharing a ride now unlocks
+  contacts the same way sharing a meal table does.
+- Verified live: two accounts, poster posts a flight, joiner clicks Share on the real
+  board, DB shows a 2-member pool at capacity 4, UI shows "Joined ✓" for the joiner and
+  "Posted" unchanged for the poster.
+
+Migration `0011_ride_join.sql` needs to be applied to the live Supabase project (same
+manual step as the others).
 
 ### Update — 2026-07-29 verified live end-to-end on a fresh Supabase project
 

@@ -12,17 +12,48 @@ export async function submitFlight(input: FlightInput): Promise<Result> {
   const scheduledAt = new Date(`${input.localDateTime}:00${EVENT_OFFSET}`);
   if (isNaN(scheduledAt.getTime())) return { ok: false, error: "That time didn't parse." };
 
-  const { error } = await supabase.from("flights").upsert(
-    {
-      user_id: user.id,
-      direction: input.direction,
-      airport: EVENT_AIRPORT,
-      scheduled_at: scheduledAt.toISOString(),
-      luggage: true,
-    },
-    { onConflict: "user_id,direction" },
-  );
+  const { data: flight, error } = await supabase
+    .from("flights")
+    .upsert(
+      {
+        user_id: user.id,
+        direction: input.direction,
+        airport: EVENT_AIRPORT,
+        scheduled_at: scheduledAt.toISOString(),
+        luggage: true,
+      },
+      { onConflict: "user_id,direction" },
+    )
+    .select("id")
+    .single();
   if (error) return { ok: false, error: error.message };
+
+  // Open (or reuse) this flight's ride pool and seat the poster in it, so
+  // "Share" on Rides has something real to join — see migration 0011.
+  const { data: pool, error: poolErr } = await supabase
+    .from("ride_pools")
+    .upsert(
+      {
+        anchor_flight_id: flight.id,
+        direction: input.direction,
+        pickup_at: scheduledAt.toISOString(),
+      },
+      { onConflict: "anchor_flight_id" },
+    )
+    .select("id")
+    .single();
+  if (poolErr) return { ok: false, error: poolErr.message };
+
+  const { error: memberErr } = await supabase.from("ride_members").upsert(
+    {
+      pool_id: pool.id,
+      user_id: user.id,
+      ready_at: scheduledAt.toISOString(),
+    },
+    { onConflict: "pool_id,user_id", ignoreDuplicates: true },
+  );
+  if (memberErr) return { ok: false, error: memberErr.message };
+
   return { ok: true };
 }
 
@@ -34,5 +65,34 @@ export async function deleteFlight(direction: Direction): Promise<Result> {
     .eq("user_id", user.id)
     .eq("direction", direction);
   if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  return { ok: true }; // cascades: ride_pools.anchor_flight_id -> ride_members
+}
+
+// "Share" on Rides — joins the target flight's ride pool. Capped at the
+// pool's capacity (default 4, ride_pools.capacity from 0001); once full,
+// callers should stop offering the join action.
+export async function joinRide(flightId: string): Promise<Result & { full?: boolean }> {
+  const { user, supabase } = await requireUser();
+
+  const { data: pool, error: poolErr } = await supabase
+    .from("ride_pools")
+    .select("id, capacity")
+    .eq("anchor_flight_id", flightId)
+    .maybeSingle();
+  if (poolErr) return { ok: false, error: poolErr.message };
+  if (!pool) return { ok: false, error: "This ride isn't open yet." };
+
+  const { count, error: countErr } = await supabase
+    .from("ride_members")
+    .select("*", { count: "exact", head: true })
+    .eq("pool_id", pool.id);
+  if (countErr) return { ok: false, error: countErr.message };
+  if ((count ?? 0) >= pool.capacity) return { ok: false, error: "This ride is full.", full: true };
+
+  const { error } = await supabase.from("ride_members").upsert(
+    { pool_id: pool.id, user_id: user.id, ready_at: new Date().toISOString() },
+    { onConflict: "pool_id,user_id", ignoreDuplicates: true },
+  );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, full: (count ?? 0) + 1 >= pool.capacity };
 }
