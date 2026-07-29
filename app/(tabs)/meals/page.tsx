@@ -1,8 +1,12 @@
 import { requireUser } from "@/lib/supabase/server";
+import { getConference } from "@/lib/conference";
 import MealsList from "@/components/MealsList";
 
-export default async function MealsPage() {
+// Just the data-dependent list — shared by the standalone /meals route and the
+// combined /matching (Meals | Rides) tab, so both read from one implementation.
+export async function MealsListSection() {
   const { user, supabase } = await requireUser();
+  const conference = await getConference(supabase);
 
   const { data: slots } = await supabase
     .from("slots")
@@ -24,27 +28,38 @@ export default async function MealsPage() {
     }
   }
 
+  if (!slots?.length) {
+    return (
+      <p style={{ color: "var(--ink-2)", fontSize: 15, paddingTop: 8 }}>
+        Slots open soon.
+      </p>
+    );
+  }
+  return (
+    <MealsList
+      slots={slots}
+      counts={counts}
+      mine={mine}
+      nowMs={Date.now()}
+      isGuest={!!user.is_anonymous}
+      timezone={conference?.timezone}
+    />
+  );
+}
+
+export default async function MealsPage() {
+  const supabase = (await requireUser()).supabase;
+  const conference = await getConference(supabase);
+
   return (
     <section style={{ padding: "24px 20px" }}>
       <header className="page-head">
-        <p className="page-kicker">UKC 2026</p>
+        <p className="page-kicker">{conference?.name ?? "Meals"}</p>
         <h1 className="page-title">Meals</h1>
         <p className="page-sub">Grab dinner with people worth meeting.</p>
       </header>
 
-      {!slots?.length ? (
-        <p style={{ color: "var(--ink-2)", fontSize: 15, paddingTop: 8 }}>
-          Slots open soon.
-        </p>
-      ) : (
-        <MealsList
-          slots={slots}
-          counts={counts}
-          mine={mine}
-          nowMs={Date.now()}
-          isGuest={!!user.is_anonymous}
-        />
-      )}
+      <MealsListSection />
     </section>
   );
 }

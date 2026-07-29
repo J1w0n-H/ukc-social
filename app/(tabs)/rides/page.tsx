@@ -1,13 +1,14 @@
 import { requireUser } from "@/lib/supabase/server";
-import { EVENT_AIRPORT } from "@/lib/rides";
+import { getConference } from "@/lib/conference";
 import { Board, type Row } from "./Board";
 
-const timeFmt = new Intl.DateTimeFormat("en-US", {
-  weekday: "short",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "America/New_York",
-});
+const fmtTime = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
 
 type FlightRow = {
   id: string;
@@ -20,17 +21,21 @@ type FlightRow = {
   scheduled_at: string;
 };
 
-export default async function RidesPage() {
+// Just the data-dependent board — shared by the standalone /rides route and the
+// combined /matching (Meals | Rides) tab, so both read from one implementation.
+export async function RidesListSection() {
   const { user, supabase } = await requireUser();
+  const conference = await getConference(supabase);
+  const timeFmt = fmtTime(conference?.timezone ?? "America/New_York");
 
   // flights table may not exist yet (migration 0006 pending) → treat as empty.
-  const { data, error } = await supabase
+  let flightsQuery = supabase
     .from("flights")
     .select(
       "id, user_id, direction, other_city, other_iata, airline, flight_no, scheduled_at",
-    )
-    .eq("airport", EVENT_AIRPORT)
-    .order("scheduled_at", { ascending: true });
+    );
+  if (conference?.airport_code) flightsQuery = flightsQuery.eq("airport", conference.airport_code);
+  const { data, error } = await flightsQuery.order("scheduled_at", { ascending: true });
 
   const flights: FlightRow[] = error ? [] : ((data as FlightRow[]) ?? []);
 
@@ -88,16 +93,28 @@ export default async function RidesPage() {
   const departures = flights.filter((f) => f.direction === "departure").map(toRow);
 
   return (
+    <>
+      <Board arrivals={arrivals} departures={departures} />
+      <RidesStyles />
+    </>
+  );
+}
+
+export default async function RidesPage() {
+  const supabase = (await requireUser()).supabase;
+  const conference = await getConference(supabase);
+
+  return (
     <section className="rides">
       <header className="rides-head">
-        <p className="rides-kicker">Orlando MCO · UKC 2026</p>
+        <p className="rides-kicker">
+          {[conference?.airport_code, conference?.name].filter(Boolean).join(" · ") || "Rides"}
+        </p>
         <h1 className="rides-title">Rides</h1>
         <p className="rides-sub">See who flies near your time, then split a car.</p>
       </header>
 
-      <Board arrivals={arrivals} departures={departures} />
-
-      <RidesStyles />
+      <RidesListSection />
     </section>
   );
 }
