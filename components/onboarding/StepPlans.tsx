@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Slot = { id: string; title: string; starts_at: string };
-export type Flight = { localDateTime: string };
+export type Flight = { arrival: string; departure: string };
 
 function whenLabel(iso: string) {
   const d = new Date(iso);
@@ -36,7 +36,7 @@ export default function StepPlans({
   error: string;
 }) {
   const [slots, setSlots] = useState<Slot[] | null>(null);
-  const [showFlight, setShowFlight] = useState(!!flight.localDateTime);
+  const [showFlight, setShowFlight] = useState(!!(flight.arrival || flight.departure));
 
   useEffect(() => {
     createClient()
@@ -96,20 +96,33 @@ export default function StepPlans({
           onClick={() => setShowFlight((v) => !v)}
           aria-expanded={showFlight}
         >
-          {showFlight ? "− When do you land?" : "+ When do you land? (optional)"}
+          {showFlight ? "− Flying in or out?" : "+ Flying in or out? (optional)"}
         </button>
         {showFlight && (
           <div style={{ display: "flex", flexDirection: "column", marginTop: 4 }}>
+            <label className="ob-label" htmlFor="ob-arrival" style={{ marginTop: 0 }}>
+              Landing
+            </label>
             <input
+              id="ob-arrival"
               type="datetime-local"
               className="ob-field"
-              aria-label="Arrival time"
-              value={flight.localDateTime}
-              onChange={(e) => onFlightChange({ localDateTime: e.target.value })}
+              value={flight.arrival}
+              onChange={(e) => onFlightChange({ ...flight, arrival: e.target.value })}
+            />
+            <label className="ob-label" htmlFor="ob-departure">
+              Leaving
+            </label>
+            <input
+              id="ob-departure"
+              type="datetime-local"
+              className="ob-field"
+              value={flight.departure}
+              onChange={(e) => onFlightChange({ ...flight, departure: e.target.value })}
             />
             <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 10 }}>
-              We&apos;ll match you with others landing near the same time — no need for the
-              flight number, just when. Add details on Rides anytime.
+              We&apos;ll match you with others flying near the same time — just the time,
+              nothing else. Edit anytime on Me.
             </p>
           </div>
         )}

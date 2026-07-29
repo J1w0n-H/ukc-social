@@ -52,7 +52,7 @@ export function Board({ arrivals, departures }: { arrivals: Row[]; departures: R
           <p className="rides-empty-sub">
             Add yours and everyone flying near your time can split a car with you.
           </p>
-          <Link href={`/rides/add?d=${dir}`} className="add-btn">
+          <Link href="/me" className="add-btn">
             + Add your {dir === "arrival" ? "arrival" : "departure"}
           </Link>
         </div>
@@ -78,7 +78,7 @@ export function Board({ arrivals, departures }: { arrivals: Row[]; departures: R
               />
             ))}
           </div>
-          <Link href={`/rides/add?d=${dir}`} className="add-btn">
+          <Link href="/me" className="add-btn">
             {mine ? "Edit your flight" : `+ Add your ${dir === "arrival" ? "arrival" : "departure"}`}
           </Link>
         </>

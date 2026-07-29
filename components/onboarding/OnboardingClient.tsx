@@ -48,7 +48,7 @@ export default function OnboardingClient({ userId }: { userId: string }) {
     kakao: "",
     linkedin: "",
     slotIds: [],
-    flight: { localDateTime: "" },
+    flight: { arrival: "", departure: "" },
   };
   // Draft survives a refresh / backgrounded tab (only `step` is in the URL).
   const [data, setData] = useState<Data>(() => {
@@ -88,21 +88,16 @@ export default function OnboardingClient({ userId }: { userId: string }) {
     setError("");
     const a = await saveProfile({ dinners_wanted: data.slotIds });
     const b = await setDinnerSignups(data.slotIds);
-    // Flight is optional — just the arrival time, matching is by time window
-    // anyway (see lib/rides.ts / Board.tsx). Only submit if a time was
-    // actually entered, and don't block finishing onboarding if it fails
-    // (same non-fatal pattern as everything else here; refinable anytime at
-    // /rides/add, which still supports the fuller flight-number/airline form).
-    if (data.flight.localDateTime) {
-      await submitFlight({
-        direction: "arrival",
-        flightNo: "",
-        airline: "",
-        otherCity: "",
-        otherIata: "",
-        localDateTime: data.flight.localDateTime,
-        luggage: true,
-      });
+    // Flights are optional — just a time each way, matching is by time
+    // window anyway (see lib/rides.ts / Board.tsx). Only submit whichever
+    // was actually entered, and don't block finishing onboarding if it
+    // fails (same non-fatal pattern as everything else here; editable
+    // anytime on Me).
+    if (data.flight.arrival) {
+      await submitFlight({ direction: "arrival", localDateTime: data.flight.arrival });
+    }
+    if (data.flight.departure) {
+      await submitFlight({ direction: "departure", localDateTime: data.flight.departure });
     }
     setBusy(false);
     if (!a.ok || !b.ok)

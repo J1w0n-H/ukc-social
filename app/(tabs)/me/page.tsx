@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
+import { toLocalInput } from "@/lib/rides";
 import SignupGate from "@/components/SignupGate";
 import ProfileEditor from "@/components/ProfileEditor";
+import FlightEditor from "@/components/FlightEditor";
 
 const slotFmt = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
@@ -48,6 +50,14 @@ export default async function MePage() {
   const tables = (groupRows ?? [])
     .map((r: any) => one<{ id: string; name: string }>(r.group))
     .filter((g: any): g is { id: string; name: string } => !!g);
+
+  // flights table may not exist yet on a fresh DB — degrade to no flights set.
+  const { data: flightRows } = await supabase
+    .from("flights")
+    .select("direction, scheduled_at")
+    .eq("user_id", user.id);
+  const arrivalFlight = (flightRows ?? []).find((f) => f.direction === "arrival");
+  const departureFlight = (flightRows ?? []).find((f) => f.direction === "departure");
 
   return (
     <section style={{ padding: "24px 20px" }}>
@@ -105,6 +115,11 @@ export default async function MePage() {
           </div>
         )}
       </div>
+
+      <FlightEditor
+        initialArrival={arrivalFlight ? toLocalInput(arrivalFlight.scheduled_at) : ""}
+        initialDeparture={departureFlight ? toLocalInput(departureFlight.scheduled_at) : ""}
+      />
 
       <style>{`
         .sec-h {
