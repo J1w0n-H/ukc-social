@@ -171,18 +171,23 @@ _Not done yet — this is the runbook for when we deploy. Do NOT deploy silently
 1. **Import the repo** into Vercel (framework auto-detects as Next.js).
 2. **Set env vars** in Vercel → Project → Settings → Environment Variables (Production +
    Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `ADMIN_EMAIL`, and optionally
-   `AERODATABOX_API_KEY` (live Rides arrivals). Values mirror `.env.local`.
+   `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_EMAIL`, and optionally `ANTHROPIC_API_KEY` (AI
+   matching rationale + flight-screenshot parsing; without it both fall back to
+   deterministic/manual paths) and `GEMINI_API_KEY`. Values mirror `.env.local`.
+   `AERODATABOX_API_KEY` is dead — no page reads it anymore, skip it.
    The service-role key is server-only — never expose it as `NEXT_PUBLIC_*`.
-3. **Deploy**, note the assigned domain (e.g. `ukc-social.vercel.app`).
+3. **Deploy**, note the assigned domain (e.g. `icebreaker.vercel.app`).
 4. **Point Supabase auth at the domain:** Supabase → Auth → URL Configuration →
    Site URL `https://<domain>`, and add redirect `https://<domain>/auth/callback`
    (keep `http://localhost:3000/auth/callback` for local dev). Magic links bounce to
    `/login?error=auth` if this is missing.
-5. **DB is already live** (project `ctkjzenmwvqgrncxinvt`). If you deploy against a fresh
-   Supabase project instead, re-apply migrations `0001`→`0005` in order first, then re-seed.
-6. **Smoke test on the domain:** magic-link login → onboarding → join a dinner (try a party
-   of 2–3) → admin runs matching at `/<domain>/admin` → reveal → chat delivers live.
+5. **DB is already live** (project `kxvvnvzfdawsnftgjabl`, migrations `0001`→`0010`
+   applied, seeded with real slots + 20 Frozen-cast fake profiles — see the
+   2026-07-29 update above). If you deploy against a fresh Supabase project instead,
+   apply all ten migrations in order first, then re-seed.
+6. **Smoke test on the domain:** magic-link login → onboarding (5 steps) → join a dinner
+   (try a party of 2–3) → admin runs matching at `/<domain>/admin` → reveal → chat
+   delivers live → People's Say hi.
 7. **(Optional) Google OAuth:** enable in Supabase Auth providers; the magic-link path works
    without it.
 
