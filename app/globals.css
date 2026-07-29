@@ -169,3 +169,21 @@ h3 {
   background: none; border: none; padding: 0; cursor: pointer;
   color: var(--accent); font-size: 14px; font-weight: 600;
 }
+
+/* ── Responsive desktop layout ─────────────────────────────────────────────
+   Mobile stays the fixed-bottom-tabbar layout unchanged; >=1024px switches
+   to a left icon rail (TabBar.tsx) + reflows main content beside it instead
+   of below it. */
+.app-main { padding-bottom: 88px; }
+@media (min-width: 1024px) {
+  .app-main { padding-bottom: 0; padding-left: 64px; }
+}
+
+/* NotificationBell's fixed position: top-right on mobile (clear of the
+   bottom tabbar), moved down into the left rail's column on desktop so it
+   sits above 마이페이지 the way the rail groups it — same component, just
+   repositioned via CSS, not a fork. */
+.notif-slot { position: fixed; top: 8px; right: 8px; z-index: 55; }
+@media (min-width: 1024px) {
+  .notif-slot { top: auto; right: auto; left: 12px; bottom: 84px; }
+}

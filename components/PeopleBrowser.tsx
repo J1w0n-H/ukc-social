@@ -278,7 +278,7 @@ export default function PeopleBrowser({
           </button>
         </div>
       ) : (
-        <div>
+        <div className="ppl-grid">
           {filtered.map((person) => {
             const rel = relationOf(person);
             const isMe = person.id === meId;
@@ -515,6 +515,22 @@ export default function PeopleBrowser({
           border-bottom: 1px solid var(--line);
         }
         .person-row:last-child { border-bottom: none; }
+        /* Desktop web layout: single-column hairline list -> 3-col card grid.
+           Same data/rows, just laid out as cards instead of dividers. */
+        @media (min-width: 1024px) {
+          .ppl-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+          }
+          .person-row {
+            align-items: flex-start;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 16px;
+          }
+          .person-row:last-child { border-bottom: 1px solid var(--line); }
+        }
         .person-info {
           display: flex;
           align-items: center;

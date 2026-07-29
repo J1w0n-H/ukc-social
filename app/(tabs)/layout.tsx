@@ -17,11 +17,11 @@ export default async function TabsLayout({
     <>
       {user?.is_anonymous && <GuestBanner />}
       {user && !user.is_anonymous && (
-        <div style={{ position: "fixed", top: 8, right: 8, zIndex: 55 }}>
+        <div className="notif-slot">
           <NotificationBell />
         </div>
       )}
-      <main style={{ paddingBottom: 88 }}>{children}</main>
+      <main className="app-main">{children}</main>
       <TabBar />
     </>
   );

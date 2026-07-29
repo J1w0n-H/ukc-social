@@ -107,6 +107,31 @@ export default function TabBar() {
             transition: none;
           }
         }
+        /* Desktop web layout: the same tab list, laid out as a left icon rail
+           instead of a bottom bar — no forked component/logic, just a second
+           CSS-driven arrangement. 마이페이지 (last item) gets pushed to the
+           bottom via margin-top: auto, leaving room above it for
+           NotificationBell (positioned separately, see app/globals.css). */
+        @media (min-width: 1024px) {
+          .tabbar {
+            top: 0;
+            bottom: 0;
+            right: auto;
+            width: 64px;
+            flex-direction: column;
+            justify-content: flex-start;
+            padding: 20px 0;
+            border-top: none;
+            border-right: 1px solid var(--glass-line);
+          }
+          .tabbar__item {
+            flex: 0 0 auto;
+            padding: 14px 0;
+          }
+          .tabbar__item:last-child {
+            margin-top: auto;
+          }
+        }
       `}</style>
     </nav>
   );
