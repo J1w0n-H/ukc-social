@@ -2,8 +2,8 @@
 
 export type EventChoice = "ukc2026" | "ksea2026" | "none";
 
-const EVENTS: { id: EventChoice; name: string; when: string }[] = [
-  { id: "ukc2026", name: "UKC 2026", when: "Aug 5–8 · ChampionsGate, FL" },
+const EVENTS: { id: EventChoice; name: string; when: string; defaultStay?: [string, string] }[] = [
+  { id: "ukc2026", name: "UKC 2026", when: "Aug 5–8 · ChampionsGate, FL", defaultStay: ["2026-08-05", "2026-08-08"] },
   { id: "ksea2026", name: "KSEA Conference", when: "Oct 2026 · Washington, DC" },
   { id: "none", name: "None of these", when: "I'm just exploring the app" },
 ];
@@ -41,7 +41,16 @@ export default function StepEvent({
               key={ev.id}
               type="button"
               className={on ? "ev-card on" : "ev-card"}
-              onClick={() => onChange({ eventId: ev.id })}
+              onClick={() =>
+                onChange({
+                  eventId: ev.id,
+                  // Pre-fill the stay dates to the event's own dates so picking
+                  // isn't a cold empty date input — still fully editable after.
+                  ...(ev.defaultStay && !stayStart && !stayEnd
+                    ? { stayStart: ev.defaultStay[0], stayEnd: ev.defaultStay[1] }
+                    : {}),
+                })
+              }
               aria-pressed={on}
             >
               <span className="ev-name">{ev.name}</span>

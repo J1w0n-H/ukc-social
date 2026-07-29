@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 type Slot = { id: string; title: string; starts_at: string };
 export type Flight = { arrival: string; departure: string };
 
+// Conference dates as a starting point — picking a datetime-local value from
+// completely blank means setting year/month/day/hour/minute one at a time,
+// which is exactly the friction this sidesteps. Still fully editable.
+const DEFAULT_ARRIVAL = "2026-08-05T12:00";
+const DEFAULT_DEPARTURE = "2026-08-08T12:00";
+
 function whenLabel(iso: string) {
   const d = new Date(iso);
   return d.toLocaleString(undefined, {
@@ -93,7 +99,15 @@ export default function StepPlans({
         <button
           type="button"
           className="ob-textlink"
-          onClick={() => setShowFlight((v) => !v)}
+          onClick={() => {
+            setShowFlight((v) => {
+              const opening = !v;
+              if (opening && !flight.arrival && !flight.departure) {
+                onFlightChange({ arrival: DEFAULT_ARRIVAL, departure: DEFAULT_DEPARTURE });
+              }
+              return opening;
+            });
+          }}
           aria-expanded={showFlight}
         >
           {showFlight ? "− Flying in or out?" : "+ Flying in or out? (optional)"}

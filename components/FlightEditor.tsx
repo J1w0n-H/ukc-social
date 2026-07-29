@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { submitFlight, deleteFlight } from "@/app/actions/flights";
 
+// Conference dates as a starting point when nothing's saved yet — same
+// reasoning as the onboarding flight step: a blank datetime-local input
+// means setting year/month/day/hour/minute one at a time from scratch.
+const DEFAULT_ARRIVAL = "2026-08-05T12:00";
+const DEFAULT_DEPARTURE = "2026-08-08T12:00";
+
 export default function FlightEditor({
   initialArrival,
   initialDeparture,
@@ -10,8 +16,8 @@ export default function FlightEditor({
   initialArrival: string;
   initialDeparture: string;
 }) {
-  const [arrival, setArrival] = useState(initialArrival);
-  const [departure, setDeparture] = useState(initialDeparture);
+  const [arrival, setArrival] = useState(initialArrival || DEFAULT_ARRIVAL);
+  const [departure, setDeparture] = useState(initialDeparture || DEFAULT_DEPARTURE);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
