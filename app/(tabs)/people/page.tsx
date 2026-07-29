@@ -41,6 +41,7 @@ export default async function PeoplePage() {
       <PeopleBrowser
         people={rows}
         meId={user.id}
+        isGuest={!!user.is_anonymous}
         myStay={{ start: me?.stay_start ?? null, end: me?.stay_end ?? null }}
         hiSent={hiSent}
       />

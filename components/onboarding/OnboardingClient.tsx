@@ -174,6 +174,7 @@ export default function OnboardingClient({ userId }: { userId: string }) {
           onChange={patch}
           busy={busy}
           error={error}
+          onBack={() => goto(1)}
           onContinue={() =>
             save(
               {

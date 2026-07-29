@@ -58,11 +58,13 @@ type StayFilter = "all" | "early" | "late" | "same";
 export default function PeopleBrowser({
   people,
   meId,
+  isGuest,
   myStay,
   hiSent,
 }: {
   people: Person[];
   meId: string;
+  isGuest: boolean;
   myStay: StayWindow;
   hiSent: string[];
 }) {
@@ -72,6 +74,7 @@ export default function PeopleBrowser({
   const [openId, setOpenId] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contacts>({ state: "loading" });
   const [sentIds, setSentIds] = useState<Set<string>>(() => new Set(hiSent));
+  const [hiErrorId, setHiErrorId] = useState<string | null>(null);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<Element | null>(null);
@@ -179,6 +182,7 @@ export default function PeopleBrowser({
   }
 
   async function handleSayHi(id: string) {
+    setHiErrorId(null);
     setSentIds((s) => new Set(s).add(id));
     const res = await sayHi(id);
     if (!res.ok) {
@@ -187,6 +191,7 @@ export default function PeopleBrowser({
         next.delete(id);
         return next;
       });
+      setHiErrorId(id);
     }
   }
 
@@ -309,10 +314,17 @@ export default function PeopleBrowser({
                       {[person.school, person.position].filter(Boolean).join(" · ") ||
                         "Not set"}
                     </div>
-                    {rel && <div className="stay-badge">{STAY_LABEL[rel]}</div>}
+                    {rel && !isMe && <div className="stay-badge">{STAY_LABEL[rel]}</div>}
                   </div>
                 </button>
-                {!isMe && (
+                {!isMe && isGuest && (
+                  <div className="say-hi-col">
+                    <a href="/login" className="say-hi-btn say-hi-guest">
+                      Sign up to say hi
+                    </a>
+                  </div>
+                )}
+                {!isMe && !isGuest && (
                   <div className="say-hi-col">
                     <button
                       type="button"
@@ -322,7 +334,9 @@ export default function PeopleBrowser({
                     >
                       {sent ? "Said hi ✓" : "Say hi"}
                     </button>
-                    <span className="say-hi-lock">🔒 contact locked</span>
+                    <span className="say-hi-lock">
+                      {hiErrorId === person.id ? "Couldn't send — try again" : "🔒 contact locked"}
+                    </span>
                   </div>
                 )}
               </div>
@@ -541,6 +555,11 @@ export default function PeopleBrowser({
         .say-hi-btn:disabled {
           opacity: 0.5;
           cursor: default;
+        }
+        .say-hi-guest {
+          display: inline-flex;
+          align-items: center;
+          text-decoration: none;
         }
         .say-hi-lock {
           font-size: 10px;
