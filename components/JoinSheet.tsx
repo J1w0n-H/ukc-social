@@ -35,13 +35,27 @@ export default function JoinSheet({
   signup?: Signup;
   closed: boolean;
   onClose: () => void;
-  onJoin: (slotId: string, partySize: number, notes: string) => void;
+  onJoin: (
+    slotId: string,
+    partySize: number,
+    notes: string,
+    confirmed?: boolean,
+  ) => Promise<{ ok: boolean; error?: string }>;
   onLeave: (slotId: string) => void;
   timezone?: string;
 }) {
   const dtf = fmtWhen(timezone);
   const [partySize, setPartySize] = useState<number>(signup?.partySize ?? 1);
   const [notes, setNotes] = useState(signup?.notes ?? "");
+  const [busy, setBusy] = useState(false);
+  const [scheduleWarning, setScheduleWarning] = useState(false);
+
+  async function handlePrimary() {
+    setBusy(true);
+    const res = await onJoin(slot.id, partySize, notes, scheduleWarning);
+    setBusy(false);
+    if (!res.ok && res.error === "schedule_conflict") setScheduleWarning(true);
+  }
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<Element | null>(null);
@@ -143,8 +157,22 @@ export default function JoinSheet({
               <p className="reveal-sub">You&apos;ll know your table and plan before dinner.</p>
             </div>
 
-            <button className="btn-primary" onClick={() => onJoin(slot.id, partySize, notes)}>
-              {joined ? "Save changes" : "Join"}
+            {scheduleWarning && (
+              <div className="schedule-warn">
+                <p className="schedule-warn__text">
+                  You&apos;re leaving before this one — still join?
+                </p>
+              </div>
+            )}
+
+            <button className="btn-primary" onClick={handlePrimary} disabled={busy}>
+              {busy
+                ? "Saving…"
+                : scheduleWarning
+                  ? "Join anyway"
+                  : joined
+                    ? "Save changes"
+                    : "Join"}
             </button>
 
             {joined && (
@@ -257,6 +285,14 @@ export default function JoinSheet({
         }
         .reveal-when { font-size: 13px; font-weight: 600; color: var(--accent); margin: 0; }
         .reveal-sub { font-size: 12px; color: var(--ink-2); margin: 4px 0 0; }
+        .schedule-warn {
+          margin-top: 12px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--danger) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+        }
+        .schedule-warn__text { font-size: 13px; font-weight: 600; color: var(--danger); margin: 0; }
         .btn-primary {
           width: 100%;
           margin-top: 24px;

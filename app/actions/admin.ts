@@ -6,13 +6,15 @@ import { getConference, type Conference } from "@/lib/conference";
 import {
   matchSlot,
   roundRobinGroups,
-  validateAssignment,
+  repackInvalid,
+  ROUND_ROBIN_RATIONALE,
   type SignupProfile,
   type MatchGroup,
 } from "@/lib/matching";
+import { isEligibleForSlot } from "@/lib/scheduleFilter";
 import { nameGroups } from "@/lib/groupName";
 
-type Result = { ok: boolean; groups?: number; flex?: boolean; error?: string };
+type Result = { ok: boolean; groups?: number; flex?: boolean; excluded?: number; error?: string };
 type Svc = ReturnType<typeof serviceClient>;
 type Slot = { id: string; starts_at: string };
 
@@ -35,11 +37,30 @@ async function matchOneSlot(
 ): Promise<Result> {
   const { data: rows, error: sErr } = await svc
     .from("signups")
-    .select("user_id, party_size, notes, profiles(name, school, position, interests)")
+    .select(
+      "user_id, party_size, notes, profiles(name, school, position, interests, event_id, stay_start, stay_end)",
+    )
     .eq("slot_id", slot.id);
   if (sErr) return { ok: false, error: sErr.message };
 
-  const signups: SignupProfile[] = (rows ?? []).map((r) => {
+  // Hard schedule filter: someone who opted out of this conference, or whose
+  // stay doesn't cover this slot's date, is never eligible — interest fit
+  // must never override a schedule conflict. Left ungrouped this run, not
+  // deleted from signups.
+  const eligibleRows = (rows ?? []).filter((r) => {
+    const p = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) ?? {};
+    return isEligibleForSlot(
+      {
+        event_id: p.event_id as string | null,
+        stay_start: p.stay_start as string | null,
+        stay_end: p.stay_end as string | null,
+      },
+      slot.starts_at,
+    );
+  });
+  const excluded = (rows?.length ?? 0) - eligibleRows.length;
+
+  const signups: SignupProfile[] = eligibleRows.map((r) => {
     // supabase types the joined relation as an array; it's a single row here.
     const p = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) ?? {};
     return {
@@ -53,7 +74,7 @@ async function matchOneSlot(
     };
   });
 
-  if (signups.length === 0) return { ok: true, groups: 0 };
+  if (signups.length === 0) return { ok: true, groups: 0, excluded };
 
   const sizes = new Map(signups.map((s) => [s.userId, s.partySize ?? 1]));
   const headcount = (ids: string[]) => ids.reduce((n, id) => n + (sizes.get(id) ?? 1), 0);
@@ -68,15 +89,24 @@ async function matchOneSlot(
     groups = roundRobinGroups(signups); // ponytail: falls back on missing ANTHROPIC_API_KEY
   }
   // Validate by headcount (a party of 3 weighs 3), matching matchSlot's own check.
-  if (!validateAssignment(signups.map((s) => s.userId), groups, 4, 6, sizes).ok)
-    groups = roundRobinGroups(signups);
+  // Keeps whatever tables are already valid, only re-packing the ones that aren't
+  // (see lib/matching.ts's repackInvalid), instead of discarding the whole slot.
+  const ids = signups.map((s) => s.userId);
+  groups = repackInvalid(groups, ids, signups, 4, 6, sizes);
 
-  // Name each table from the identity bank (data/group-names.json), not "Table N".
-  // Uses each member's interests + position to pick a fitting playful name, deduped per slot.
+  // Name each table from the identity bank (data/group-names.json), not "Table N" —
+  // but only for tables the LLM actually interest-matched. A round-robin/repacked
+  // table (ROUND_ROBIN_RATIONALE) keeps its plain "Table N" name and already-honest
+  // rationale, instead of drawing a themed name that would contradict it.
   const profileMap = new Map(
     signups.map((s) => [s.userId, { interests: s.interests, position: s.position }]),
   );
-  const names = nameGroups(groups, profileMap);
+  const llmGroups = groups.filter((g) => g.rationale !== ROUND_ROBIN_RATIONALE);
+  const llmNames = nameGroups(llmGroups, profileMap);
+  let llmIdx = 0;
+  const names = groups.map((g) =>
+    g.rationale === ROUND_ROBIN_RATIONALE ? g.name : llmNames[llmIdx++],
+  );
 
   // Idempotent: wipe prior groups for this slot (cascade drops group_members).
   const { error: delErr } = await svc.from("groups").delete().eq("slot_id", slot.id);
@@ -115,7 +145,7 @@ async function matchOneSlot(
   // Flex = some table seats fewer than 4 by headcount (an unavoidable small table).
   const flex =
     groups.length > 0 && Math.min(...groups.map((g) => headcount(g.memberIds))) < 4;
-  return { ok: true, groups: groups.length, flex };
+  return { ok: true, groups: groups.length, flex, excluded };
 }
 
 export async function runMatching(slotId: string): Promise<Result> {

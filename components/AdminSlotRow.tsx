@@ -21,7 +21,8 @@ export default function AdminSlotRow({
       const r = await runMatching(slotId);
       setResult(
         r.ok
-          ? `${r.groups} group${r.groups === 1 ? "" : "s"} · flex: ${r.flex ? "yes" : "no"}`
+          ? `${r.groups} group${r.groups === 1 ? "" : "s"} · flex: ${r.flex ? "yes" : "no"}` +
+              (r.excluded ? ` · ${r.excluded} left unmatched (schedule)` : "")
           : `error: ${r.error}`,
       );
     });

@@ -53,22 +53,28 @@ export default function MealsList({
     setTimeout(() => setToast(null), 2600);
   }
 
-  async function handleJoin(slotId: string, partySize: number, notes: string) {
-    const prevMine = mine[slotId];
-    const prevCount = counts[slotId] ?? 0;
-    const prevSize = prevMine?.partySize ?? 0;
-
-    setMine((m) => ({ ...m, [slotId]: { partySize, notes } }));
-    // Counts track headcount: adjust by the delta between old and new party size.
-    setCounts((c) => ({ ...c, [slotId]: prevCount - prevSize + partySize }));
-    setOpenId(null);
-
-    const res = await joinSlot(slotId, { partySize, notes });
-    if (!res.ok) {
-      setMine((m) => ({ ...m, [slotId]: prevMine }));
-      setCounts((c) => ({ ...c, [slotId]: prevCount }));
+  // Awaits the server before touching UI state (rather than optimistic-then-
+  // revert) so JoinSheet can show a schedule-conflict warning and let the
+  // caller retry with confirmed:true, instead of the sheet closing and then
+  // un-closing on a bounce.
+  async function handleJoin(
+    slotId: string,
+    partySize: number,
+    notes: string,
+    confirmed = false,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const res = await joinSlot(slotId, { partySize, notes, confirmed });
+    if (res.ok) {
+      const prevMine = mine[slotId];
+      const prevCount = counts[slotId] ?? 0;
+      const prevSize = prevMine?.partySize ?? 0;
+      setMine((m) => ({ ...m, [slotId]: { partySize, notes } }));
+      setCounts((c) => ({ ...c, [slotId]: prevCount - prevSize + partySize }));
+      setOpenId(null);
+    } else if (res.error !== "schedule_conflict") {
       flashToast(res.error === "closed" ? "This one just closed." : "Couldn't save. Try again.");
     }
+    return res;
   }
 
   async function handleLeave(slotId: string) {

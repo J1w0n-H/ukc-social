@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { validateAssignment, roundRobinGroups, buildMatchPrompt, type SignupProfile } from "./matching";
+import {
+  validateAssignment,
+  roundRobinGroups,
+  buildMatchPrompt,
+  repackInvalid,
+  ROUND_ROBIN_RATIONALE,
+  type SignupProfile,
+  type MatchGroup,
+} from "./matching";
 
 const ids = (n: number) => Array.from({length: n}, (_, i) => `u${i}`);
 
@@ -159,6 +167,60 @@ describe("buildMatchPrompt", () => {
     const p = buildMatchPrompt(roster, { min: 4, max: 6 });
     expect(p).toContain("4-6 people TOTAL");
     expect(p).toContain(JSON.stringify(roster, null, 1));
+  });
+});
+
+describe("repackInvalid", () => {
+  it("returns the groups unchanged when the assignment is already valid", () => {
+    const sizes = [3, 3];
+    const signups = parties(sizes);
+    const groups: MatchGroup[] = [{ memberIds: ["u0", "u1"], name: "Table 1",
+      rationale: "warm llm rationale", suggestedPlace: "" }];
+    const out = repackInvalid(groups, ids(2), signups, 4, 6, sizeMap(sizes));
+    expect(out).toBe(groups); // same reference — no repack work done
+  });
+
+  it("keeps the valid groups and only re-packs the oversize ones", () => {
+    // Table 0 is a clean 4-person table (valid); Table 1 wrongly crams two
+    // 3-person parties together for 6+... actually make it truly oversize: a
+    // party of 4 + a party of 4 in one table = headcount 8 > max 6.
+    const sizes = [4, 4, 2, 2]; // u0,u1 oversized together; u2,u3 fine together
+    const signups = parties(sizes);
+    const badGroups: MatchGroup[] = [
+      { memberIds: ["u0", "u1"], name: "Table 1", rationale: "llm rationale", suggestedPlace: "" },
+      { memberIds: ["u2", "u3"], name: "Table 2", rationale: "llm rationale", suggestedPlace: "" },
+    ];
+    const out = repackInvalid(badGroups, ids(4), signups, 4, 6, sizeMap(sizes));
+    // The valid table (u2,u3) survives untouched, by reference.
+    expect(out).toContain(badGroups[1]);
+    // Everyone is still seated exactly once, and the repacked remainder is valid.
+    const all = out.flatMap((g) => g.memberIds).sort();
+    expect(all).toEqual(["u0", "u1", "u2", "u3"]);
+    const revalidated = validateAssignment(ids(4), out, 4, 6, sizeMap(sizes));
+    expect(revalidated.oversize).toEqual([]);
+  });
+
+  it("falls back to a full repack when the partition itself is broken (missing/duped ids)", () => {
+    const sizes = [1, 1, 1, 1];
+    const signups = parties(sizes);
+    // u3 is missing entirely from this "LLM" output — not a clean partition,
+    // so repackInvalid can't trust any individual group's membership.
+    const brokenGroups: MatchGroup[] = [
+      { memberIds: ["u0", "u1", "u2"], name: "Table 1", rationale: "llm rationale", suggestedPlace: "" },
+    ];
+    const out = repackInvalid(brokenGroups, ids(4), signups, 4, 6, sizeMap(sizes));
+    const all = out.flatMap((g) => g.memberIds).sort();
+    expect(all).toEqual(ids(4).sort()); // everyone present now, including u3
+    expect(out.every((g) => g.rationale === ROUND_ROBIN_RATIONALE)).toBe(true);
+  });
+
+  it("is idempotent (not an infinite loop) for a lone party bigger than max", () => {
+    const sizes = [7];
+    const signups = parties(sizes);
+    const groups: MatchGroup[] = [{ memberIds: ["u0"], name: "Table 1", rationale: "llm rationale", suggestedPlace: "" }];
+    const out = repackInvalid(groups, ["u0"], signups, 4, 6, sizeMap(sizes));
+    expect(out.length).toBe(1);
+    expect(out[0].memberIds).toEqual(["u0"]);
   });
 });
 
