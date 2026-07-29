@@ -1,6 +1,47 @@
-# UKC Social — Handoff / Status
+# Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-28 (bug review pass)_
+_Last updated: 2026-07-28 (Icebreaker reskin + Event/stay + People "Say hi")_
+
+### Update — 2026-07-28 Icebreaker reskin + Event & stay + People "Say hi"
+
+Full visual reskin ("Icebreaker" — frost-navy + icy-cyan, Frozen-cast mock data in
+`scripts/seed-fake.ts`) plus real product changes, per `Icebreaker Design Guide.dc.html`:
+
+- **Shipped for real:** onboarding step 1 "Event & stay" (`event_id`/`stay_start`/
+  `stay_end` on `profiles`, migration `0009`); onboarding step 4 "Contact & bio"
+  (collects kakao/linkedin/bio during setup, not left for the Me screen); onboarding's
+  flight panel now actually calls `submitFlight()` instead of writing to `localStorage`
+  only; Join sheet shows `join_deadline` ("Tables revealed…"); login's "check your email"
+  gets Resend (`supabase.auth.resend`) + "use a different email"; People shows a
+  stay-relationship badge (`lib/stay.ts`, unit-tested) with filter chips, and a real,
+  persisted "Say hi" request (`hi_requests` table, migration `0010`, `app/actions/hi.ts`)
+  — deliberately **not** wired into `shares_channel()`, so full-contact RLS is unchanged.
+  **`hi_requests` has no recipient-facing inbox UI yet** — the row is written for real
+  (unlike the old Rides "Share" stub), but nothing surfaces an incoming request to the
+  person who received it. Worth a follow-up.
+- **`/mentor` removed.** It was already unreachable from any nav. `lib/mentorMatch.ts` +
+  its tests are untouched — if mentor matching gets revisited, see
+  `docs/mentor-match-logic.md`'s "What building it needs" section.
+- **Logged, not built this pass** (data model is in place; enforcement isn't):
+  - `event_id` isn't read by `runMatching` or `rides.ts` — people who picked different
+    events (or "None of these") can still land in the same signups list and get seated
+    together. The event picker is cosmetic until this is wired in.
+  - `JoinSheet` doesn't check a slot's date against the signer's `stay_start`/`stay_end`
+    — someone leaving before a dinner can still join it and never show up.
+  - No two-stage matching pipeline exists: today there's no hard schedule filter at all,
+    so "interest fit should never override a schedule conflict" isn't implemented in
+    either direction yet.
+  - `matchSlot()` skips the LLM (and therefore interests) whenever a slot's headcount is
+    ≤ 6 — the common case — and calls the interest-blind `roundRobinGroups()` instead.
+  - A failed `validateAssignment` (after 2 LLM retries) re-packs the *whole* slot via
+    round-robin instead of keeping any groups that were already valid.
+  - A round-robin table can still draw a flavorful name from the bank
+    (`lib/groupName.ts`) while its rationale stays the generic "Grouped to keep tables
+    even." — name and reasoning can contradict each other.
+  - `EVENT_OFFSET`/`EVENT_AIRPORT` (`lib/rides.ts`) are hardcoded for one event/timezone,
+    now that the app has a picker implying more than one event is possible.
+- Migrations `0009_event_stay.sql` and `0010_hi_requests.sql` need to be applied to the
+  live Supabase project (same manual step as `0008`) before any of the above works.
 
 ### Update — 2026-07-28 bug review pass
 - **Security fix (apply promptly): migration `0008_profiles_contact_rls.sql`.** The

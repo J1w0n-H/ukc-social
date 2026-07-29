@@ -257,7 +257,7 @@ function FormStyles() {
       .ff-error { margin: 0; font-size: 14px; color: var(--danger); }
       .ff-submit {
         margin-top: 4px; min-height: 52px; border-radius: 14px; border: none;
-        background: var(--accent); color: var(--accent-ink);
+        background: var(--accent-grad); color: var(--accent-ink);
         font-size: 16px; font-weight: 700; cursor: pointer;
         transition: opacity 0.15s ease;
       }

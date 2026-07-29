@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Slot = { id: string; title: string; starts_at: string };
+export type Flight = { airline: string; flightNo: string; localDateTime: string };
 
 function whenLabel(iso: string) {
   const d = new Date(iso);
@@ -18,6 +19,8 @@ function whenLabel(iso: string) {
 export default function StepPlans({
   value,
   onChange,
+  flight,
+  onFlightChange,
   onFinish,
   onBack,
   busy,
@@ -25,12 +28,17 @@ export default function StepPlans({
 }: {
   value: string[];
   onChange: (v: string[]) => void;
+  flight: Flight;
+  onFlightChange: (f: Flight) => void;
   onFinish: () => void;
   onBack: () => void;
   busy: boolean;
   error: string;
 }) {
   const [slots, setSlots] = useState<Slot[] | null>(null);
+  const [showFlight, setShowFlight] = useState(
+    !!(flight.airline || flight.flightNo || flight.localDateTime),
+  );
 
   useEffect(() => {
     createClient()
@@ -44,9 +52,15 @@ export default function StepPlans({
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
 
+  const FLIGHT_FIELDS = [
+    ["airline", "Airline", "Airline (e.g. Korean Air)", "text"],
+    ["flightNo", "Flight number", "Flight number (e.g. KE081)", "text"],
+    ["localDateTime", "Arrival", "Arrival", "datetime-local"],
+  ] as const;
+
   return (
     <>
-      <span className="ob-kicker">Set up · 3 of 3</span>
+      <span className="ob-kicker">Set up · 5 of 5</span>
       <h1 className="ob-title">Which dinners are you in for?</h1>
       <p className="ob-sub">Pick any. We&apos;ll seat you with people worth meeting.</p>
 
@@ -80,6 +94,35 @@ export default function StepPlans({
               </button>
             );
           })
+        )}
+      </div>
+
+      <div style={{ marginTop: 22 }}>
+        <button
+          type="button"
+          className="ob-textlink"
+          onClick={() => setShowFlight((v) => !v)}
+          aria-expanded={showFlight}
+        >
+          {showFlight ? "− Flight info" : "+ Add flight info (optional)"}
+        </button>
+        {showFlight && (
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 4 }}>
+            {FLIGHT_FIELDS.map(([key, label, ph, type]) => (
+              <input
+                key={key}
+                type={type}
+                className="ob-field"
+                aria-label={label}
+                value={flight[key]}
+                placeholder={ph}
+                onChange={(e) => onFlightChange({ ...flight, [key]: e.target.value })}
+              />
+            ))}
+            <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 10 }}>
+              Saved to Rides — you can refine the details (direction, luggage) there anytime.
+            </p>
+          </div>
         )}
       </div>
 

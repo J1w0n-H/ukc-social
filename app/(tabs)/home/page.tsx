@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
+import Wordmark from "@/components/Wordmark";
 
 const HOUR = 3600_000;
 
@@ -131,8 +132,7 @@ export default async function HomePage() {
   return (
     <section style={{ padding: "24px 20px" }}>
       <header style={{ marginBottom: 24 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="UKC Social" height={44} width={102} style={{ display: "block" }} />
+        <Wordmark size="sm" />
         <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 6 }}>
           {dateFmt.format(new Date(now))}
         </div>
@@ -288,8 +288,8 @@ function JoinedWaiting({ slot, count }: { slot: Slot; count: number }) {
             )}
           </div>
           <div style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 10 }}>
-            <strong style={{ color: "var(--ink)" }}>{count}</strong>{" "}
-            {count === 1 ? "person is" : "people are"} in so far.
+            <strong style={{ color: "var(--ink)" }}>{count}</strong> of Arendelle are in so
+            far.
           </div>
         </div>
       )}

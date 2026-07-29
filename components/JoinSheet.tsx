@@ -134,6 +134,11 @@ export default function JoinSheet({
               placeholder="Anything your table should know? (optional)"
             />
 
+            <div className="reveal-note">
+              <p className="reveal-when">Tables revealed {dtf.format(new Date(slot.join_deadline))}</p>
+              <p className="reveal-sub">You&apos;ll know your table and plan before dinner.</p>
+            </div>
+
             <button className="btn-primary" onClick={() => onJoin(slot.id, partySize, notes)}>
               {joined ? "Save changes" : "Join"}
             </button>
@@ -239,11 +244,20 @@ export default function JoinSheet({
           outline: none;
           border-bottom-color: var(--accent);
         }
+        .reveal-note {
+          margin-top: 18px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--accent) 8%, transparent);
+          border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+        }
+        .reveal-when { font-size: 13px; font-weight: 600; color: var(--accent); margin: 0; }
+        .reveal-sub { font-size: 12px; color: var(--ink-2); margin: 4px 0 0; }
         .btn-primary {
           width: 100%;
           margin-top: 24px;
           border: none;
-          background: var(--accent);
+          background: var(--accent-grad);
           color: var(--accent-ink);
           font-size: 16px;
           font-weight: 700;

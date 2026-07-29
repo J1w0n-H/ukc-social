@@ -1,9 +1,12 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Wordmark from "@/components/Wordmark";
+
+const RESEND_COOLDOWN_S = 30;
 
 type Mode = "signin" | "signup";
 
@@ -26,9 +29,29 @@ function LoginInner() {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState<null | "email" | "google" | "guest">(null);
+  const [busy, setBusy] = useState<null | "email" | "google" | "guest" | "resend">(null);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState(params.get("error") === "auth" ? "That link didn't work. Try again." : "");
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
+
+  async function resend() {
+    setBusy("resend");
+    setError("");
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    setBusy(null);
+    if (error) return setError(friendly(error.message));
+    setCooldown(RESEND_COOLDOWN_S);
+  }
 
   async function withGoogle() {
     setBusy("google");
@@ -79,7 +102,11 @@ function LoginInner() {
         return setError("That email already has an account. Sign in below.");
       }
       // Confirmation required → no session yet.
-      if (!data.session) return setSent(true);
+      if (!data.session) {
+        setSent(true);
+        setCooldown(RESEND_COOLDOWN_S);
+        return;
+      }
       router.push("/welcome");
       router.refresh();
     } else {
@@ -103,7 +130,27 @@ function LoginInner() {
             We sent a confirmation link to <strong>{email}</strong>. Tap it to finish
             creating your account, then come back and sign in.
           </p>
-          <button className="au-textlink" onClick={() => { setSent(false); setMode("signin"); }} style={{ marginTop: 14 }}>
+          {error && <p className="au-error">{error}</p>}
+          <button
+            type="button"
+            className="au-resend"
+            onClick={resend}
+            disabled={busy === "resend" || cooldown > 0}
+          >
+            {busy === "resend"
+              ? "Sending…"
+              : cooldown > 0
+                ? `Resend email · available in ${cooldown}s`
+                : "Resend email"}
+          </button>
+          <button
+            className="au-textlink"
+            onClick={() => { setSent(false); setMode("signup"); setError(""); }}
+            style={{ marginTop: 10, display: "block" }}
+          >
+            Use a different email
+          </button>
+          <button className="au-textlink" onClick={() => { setSent(false); setMode("signin"); }} style={{ marginTop: 14, display: "block" }}>
             Back to sign in
           </button>
         </div>
@@ -163,7 +210,7 @@ function LoginInner() {
       </form>
 
       <p className="au-switch">
-        {mode === "signin" ? "New to UKC Social? " : "Already have an account? "}
+        {mode === "signin" ? "New to Icebreaker? " : "Already have an account? "}
         <button
           type="button"
           className="au-textlink"
@@ -195,8 +242,9 @@ function Shell({ children }: { children: React.ReactNode }) {
         margin: "0 auto",
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo.png" alt="UKC Social" height={64} width={149} style={{ display: "block", marginBottom: 8 }} />
+      <div style={{ marginBottom: 8 }}>
+        <Wordmark />
+      </div>
       {children}
     </main>
   );
@@ -246,11 +294,20 @@ function AuthStyles() {
       .au-primary {
         width: 100%; min-height: 50px; margin-top: 20px;
         border: 0; border-radius: 12px;
-        background: var(--accent); color: var(--accent-ink);
+        background: var(--accent-grad); color: var(--accent-ink);
         font-size: 16px; font-weight: 700; cursor: pointer;
         transition: opacity 0.15s ease;
       }
       .au-primary:disabled { opacity: 0.5; cursor: default; }
+      .au-resend {
+        width: 100%; min-height: 46px; margin-top: 16px;
+        border: 1px solid var(--line); border-radius: 12px;
+        background: transparent; color: var(--ink);
+        font-size: 14px; font-weight: 700; cursor: pointer;
+        transition: border-color 0.15s ease, opacity 0.15s ease;
+      }
+      .au-resend:hover:not(:disabled) { border-color: var(--ink-3); }
+      .au-resend:disabled { opacity: 0.55; cursor: default; }
       .au-switch { margin-top: 20px; font-size: 14px; color: var(--ink-2); text-align: center; }
       .au-textlink {
         background: none; border: none; padding: 0; cursor: pointer;

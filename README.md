@@ -1,17 +1,20 @@
-# UKC Social
+# Icebreaker
 
 A conference companion for **UKC 2026** (Aug 5–8, ChampionsGate FL). Attendees make a
-quick profile, join a dinner slot, and get matched into small tables by shared interests —
-solo or as a pre-formed group. They can also opt into a daily mentor/mentee 1:1 and post
-their flight to find someone to split an airport ride with. Contacts unlock only for people
-you actually share a meal table with.
+quick profile — including which event they're at and how long they're staying — join a
+dinner slot, and get matched into small tables by shared interests, solo or as a pre-formed
+group. They can browse who else is around (with an "arriving early / staying late / same
+dates as you" badge and a light "Say hi") and post their flight to find someone to split an
+airport ride with. Contacts unlock only for people you actually share a meal table with.
 
-**Four pillars:** profiles/directory · AI meal matching · mentor 1:1 matching · airport
-ride coordination.
-**Design:** "Night Arrivals" — dark ink-navy ground (`#0e1420`), a single persimmon
-accent (`#ff6a3d`) used only on actions/state, de-boxed editorial layout (hairline
-dividers instead of cards, underline inputs), Bricolage Grotesque display + Hanken Grotesk
-body. Korean-safe throughout.
+**Pillars:** profiles/directory (with stay-window "Say hi") · AI meal matching · airport
+ride coordination. *(Mentor 1:1 matching is descoped for now — see `docs/HANDOFF.md` —
+the algorithm still lives in `lib/mentorMatch.ts` but isn't wired to a route.)*
+**Design:** "Icebreaker" — a Frozen-inspired frost-navy ground (`#0A121C`), a single
+icy-cyan accent (`#4FD1E8`, gradient on filled primary buttons only) used only on
+actions/state, de-boxed editorial layout (hairline dividers instead of cards, underline
+inputs), Inter display/body + Noto Sans KR fallback. Korean-safe throughout. Dev/demo data
+(`scripts/seed-fake.ts`) uses Frozen-universe names as placeholder profiles.
 
 > **Heads up on Next.js:** this repo pins a Next.js version with breaking changes from what
 > you may remember — APIs, conventions, and file structure can differ from older docs. Read
@@ -67,6 +70,8 @@ re-apply all of them:
 | `0006_flights_mentor.sql` | `flights` table (self-reported arrival/departure, powers Rides) + `profiles.mentor_optin` |
 | `0007_birthday.sql` | `profiles.birthday` (optional, collected during onboarding) |
 | `0008_profiles_contact_rls.sql` | **Security fix.** Tightens `profiles` SELECT so only the owner or someone who shares a channel with them can read a row — closes a gap where any signed-in user (including guests) could read anyone's kakao/linkedin/dietary/birthday directly, bypassing the app's "contacts unlock only when you share a table" gate. Apply this one promptly. |
+| `0009_event_stay.sql` | `profiles.event_id`/`stay_start`/`stay_end` (onboarding's Event & stay step) + adds the stay columns to `directory_profiles` |
+| `0010_hi_requests.sql` | `hi_requests` table + RLS — People's "Say hi" request, deliberately not wired into `shares_channel()` |
 
 Apply via the Supabase dashboard SQL editor (paste each file, Run), or the Supabase CLI.
 

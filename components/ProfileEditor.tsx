@@ -385,7 +385,7 @@ function PeStyles() {
         border-radius: 12px;
         font-size: 16px;
         font-weight: 700;
-        background: var(--accent);
+        background: var(--accent-grad);
         color: var(--accent-ink);
         border: none;
         transition: opacity 180ms ease-out;

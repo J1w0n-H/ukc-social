@@ -672,7 +672,7 @@ export default function Chat({
           flex-shrink: 0; width: 44px; height: 44px;
           display: grid; place-items: center;
           border: none; border-radius: 50%;
-          color: var(--accent-ink); background: var(--accent);
+          color: var(--accent-ink); background: var(--accent-grad);
           cursor: pointer; transition: opacity 150ms ease-out, transform 150ms ease-out;
         }
         .send:disabled { opacity: 0.35; cursor: default; }

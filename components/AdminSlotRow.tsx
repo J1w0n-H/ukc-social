@@ -56,7 +56,7 @@ export default function AdminSlotRow({
           padding: "8px 14px",
           borderRadius: 8,
           border: "none",
-          background: pending ? "var(--ink-3)" : "var(--accent)",
+          background: pending ? "var(--ink-3)" : "var(--accent-grad)",
           color: "var(--accent-ink)",
           fontWeight: 600,
           fontSize: 14,

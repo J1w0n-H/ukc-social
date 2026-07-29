@@ -22,7 +22,7 @@ export default function SignupGate({ title, blurb }: { title: string; blurb: str
           minHeight: 50,
           lineHeight: "50px",
           borderRadius: 12,
-          background: "var(--accent)",
+          background: "var(--accent-grad)",
           color: "var(--accent-ink)",
           fontSize: 16,
           fontWeight: 700,

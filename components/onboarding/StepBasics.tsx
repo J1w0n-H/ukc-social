@@ -54,7 +54,7 @@ export default function StepBasics({
 
   return (
     <>
-      <span className="ob-kicker">Set up · 1 of 3</span>
+      <span className="ob-kicker">Set up · 2 of 5</span>
       <h1 className="ob-title">Let&apos;s set you up</h1>
       <p className="ob-sub">Takes under a minute.</p>
 
