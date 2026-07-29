@@ -16,6 +16,11 @@ type Row = {
   unread: number;
 };
 
+type GroupRef = { id: string; name: string };
+
+const one = <T,>(v: T | T[] | null | undefined): T | null =>
+  Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
+
 export default async function ChatIndexPage() {
   const { user, supabase } = await requireUser();
 
@@ -24,8 +29,8 @@ export default async function ChatIndexPage() {
     .select("group:groups(id, name)")
     .eq("user_id", user.id);
   const groups = (groupRows ?? [])
-    .map((r: any) => (Array.isArray(r.group) ? r.group[0] : r.group))
-    .filter((g: any): g is { id: string; name: string } => !!g);
+    .map((r) => one<GroupRef>(r.group))
+    .filter((g): g is GroupRef => !!g);
   const groupIds = groups.map((g) => g.id);
 
   const { data: reads } = groupIds.length
@@ -69,7 +74,7 @@ export default async function ChatIndexPage() {
       <header className="page-head">
         <p className="page-kicker">채팅</p>
         <h1 className="page-title">Chat</h1>
-        <p className="page-sub">Every table and ride you're part of.</p>
+        <p className="page-sub">Every table and ride you&apos;re part of.</p>
       </header>
 
       {rows.length === 0 ? (

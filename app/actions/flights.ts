@@ -2,6 +2,7 @@
 
 import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
+import { serviceClient } from "@/lib/supabase/service";
 import { type Direction, type FlightInput } from "@/lib/rides";
 
 type Result = { ok: boolean; error?: string };
@@ -85,17 +86,35 @@ export async function joinRide(flightId: string): Promise<Result & { full?: bool
   if (poolErr) return { ok: false, error: poolErr.message };
   if (!pool) return { ok: false, error: "This ride isn't open yet." };
 
-  const { count, error: countErr } = await supabase
+  const { data: existing, error: countErr } = await supabase
     .from("ride_members")
-    .select("*", { count: "exact", head: true })
+    .select("user_id")
     .eq("pool_id", pool.id);
   if (countErr) return { ok: false, error: countErr.message };
-  if ((count ?? 0) >= pool.capacity) return { ok: false, error: "This ride is full.", full: true };
+  const count = existing?.length ?? 0;
+  if (count >= pool.capacity) return { ok: false, error: "This ride is full.", full: true };
 
   const { error } = await supabase.from("ride_members").upsert(
     { pool_id: pool.id, user_id: user.id, ready_at: new Date().toISOString() },
     { onConflict: "pool_id,user_id", ignoreDuplicates: true },
   );
   if (error) return { ok: false, error: error.message };
-  return { ok: true, full: (count ?? 0) + 1 >= pool.capacity };
+
+  // Notify every rider already in the pool (they gained a rider) — the joiner
+  // isn't one of the recipients, and most of them aren't the caller's own
+  // session, so this needs the service-role client.
+  const others = (existing ?? []).filter((m) => m.user_id !== user.id);
+  if (others.length) {
+    await serviceClient()
+      .from("notifications")
+      .insert(
+        others.map((m) => ({
+          user_id: m.user_id,
+          type: "ride_matched" as const,
+          payload: { pool_id: pool.id, joined_user_id: user.id },
+        })),
+      );
+  }
+
+  return { ok: true, full: count + 1 >= pool.capacity };
 }

@@ -102,6 +102,16 @@ async function matchOneSlot(
   const { error: mErr } = await svc.from("group_members").insert(members);
   if (mErr) return { ok: false, error: mErr.message };
 
+  // One notification per seated member (migration 0014) — best-effort, doesn't
+  // fail the match if it errors (the groups/members rows are already committed).
+  await svc.from("notifications").insert(
+    members.map((m) => ({
+      user_id: m.user_id,
+      type: "table_revealed" as const,
+      payload: { group_id: m.group_id, slot_id: slot.id },
+    })),
+  );
+
   // Flex = some table seats fewer than 4 by headcount (an unavoidable small table).
   const flex =
     groups.length > 0 && Math.min(...groups.map((g) => headcount(g.memberIds))) < 4;
