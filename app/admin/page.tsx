@@ -1,10 +1,14 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
+import { getConference } from "@/lib/conference";
 import AdminSlotRow from "@/components/AdminSlotRow";
+import AdminConferenceForm from "@/components/AdminConferenceForm";
 
 export default async function AdminPage() {
   const { user, supabase } = await requireUser();
   if (user.email !== process.env.ADMIN_EMAIL) notFound();
+
+  const conference = await getConference(supabase);
 
   const { data: slots } = await supabase
     .from("slots")
@@ -22,6 +26,9 @@ export default async function AdminPage() {
       <p style={{ color: "var(--ink-2)", margin: "8px 0 20px" }}>
         Run interest matching per slot. Reruns replace prior groups.
       </p>
+
+      <AdminConferenceForm conference={conference} />
+
       <div style={{ borderTop: "1px solid var(--line)" }}>
         {(slots ?? []).map((slot) => (
           <AdminSlotRow

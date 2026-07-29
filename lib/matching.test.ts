@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateAssignment, roundRobinGroups, type SignupProfile } from "./matching";
+import { validateAssignment, roundRobinGroups, buildMatchPrompt, type SignupProfile } from "./matching";
 
 const ids = (n: number) => Array.from({length: n}, (_, i) => `u${i}`);
 
@@ -109,6 +109,28 @@ describe("roundRobinGroups — party headcount", () => {
     }
   });
 
+  it("seats a lone party bigger than max alone, without leaving stray empty bins", () => {
+    // A party of 7 can't fit under max=6 with anyone else, and can't be split
+    // (atoms are never split) — it must still get exactly one non-empty group,
+    // with none of the pre-allocated empty bins leaking through as phantom
+    // zero-member tables (which would otherwise get inserted into the DB as a
+    // broken, member-less group row).
+    const sizes = [7];
+    const gs = roundRobinGroups(parties(sizes));
+    expect(gs.length).toBe(1);
+    expect(gs[0].memberIds).toEqual(["u0"]);
+    expect(headcount(gs[0].memberIds, sizeMap(sizes))).toBe(7);
+  });
+
+  it("gives each of two lone oversized parties its own group, no phantom empties", () => {
+    const sizes = [7, 8];
+    const gs = roundRobinGroups(parties(sizes));
+    expect(gs.length).toBe(2);
+    expect(gs.every((g) => g.memberIds.length > 0)).toBe(true);
+    const all = gs.flatMap((g) => g.memberIds).sort();
+    expect(all).toEqual(["u0", "u1"]);
+  });
+
   it("never exceeds max headcount and seats everyone exactly once (mixed)", () => {
     const sizes = [1, 2, 3, 4, 1, 2, 3, 1, 2, 5, 1];
     const gs = roundRobinGroups(parties(sizes));
@@ -118,6 +140,39 @@ describe("roundRobinGroups — party headcount", () => {
     for (const g of gs) expect(headcount(g.memberIds, sm)).toBeLessThanOrEqual(6);
     // no atom split: every id appears exactly once (already covered by all==ids, no dupes)
     expect(new Set(all).size).toBe(all.length);
+  });
+});
+
+describe("buildMatchPrompt", () => {
+  it("interpolates eventName and location when given", () => {
+    const p = buildMatchPrompt([], { min: 4, max: 6, eventName: "KSEA 2026", location: "Washington, DC" });
+    expect(p).toContain("KSEA 2026 attendees");
+    expect(p).toContain("near Washington, DC");
+  });
+  it("falls back to generic phrasing when eventName/location are omitted", () => {
+    const p = buildMatchPrompt([], { min: 4, max: 6 });
+    expect(p).toContain("conference attendees");
+    expect(p).not.toContain("near ");
+  });
+  it("embeds the min/max seat bounds and the roster JSON", () => {
+    const roster = [{ userId: "u0" }];
+    const p = buildMatchPrompt(roster, { min: 4, max: 6 });
+    expect(p).toContain("4-6 people TOTAL");
+    expect(p).toContain(JSON.stringify(roster, null, 1));
+  });
+});
+
+describe("validateAssignment — unavoidable oversize (indivisible party > max)", () => {
+  it("flags an unavoidable oversized table as not-ok, even though it's the only possible grouping", () => {
+    // Documents an existing gap, not a new fix: roundRobinGroups() will still
+    // produce (and app/actions/admin.ts's matchOneSlot will still insert) this
+    // exact table, since parties can never be split. validateAssignment's
+    // "oversize is a hard fail" is informational here, not enforced upstream —
+    // there's no retry/split path for an indivisible party bigger than max.
+    const sizes = new Map([["a", 7]]);
+    const r = validateAssignment(["a"], [{ memberIds: ["a"] }], 4, 6, sizes);
+    expect(r.ok).toBe(false);
+    expect(r.oversize).toEqual([0]);
   });
 });
 

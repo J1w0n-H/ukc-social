@@ -1,8 +1,10 @@
 import { requireUser } from "@/lib/supabase/server";
+import { getConference } from "@/lib/conference";
 import PeopleBrowser from "@/components/PeopleBrowser";
 
 export default async function PeoplePage() {
   const { user, supabase } = await requireUser();
+  const conference = await getConference(supabase);
 
   // stay_start/stay_end may not exist yet (migration 0009 pending) → degrade
   // to no stay data rather than erroring the whole page.
@@ -34,7 +36,7 @@ export default async function PeoplePage() {
   return (
     <section style={{ padding: "24px 20px" }}>
       <header className="page-head">
-        <p className="page-kicker">UKC 2026</p>
+        <p className="page-kicker">{conference?.name ?? "People"}</p>
         <h1 className="page-title">People</h1>
         <p className="page-sub">Everyone here this week.</p>
       </header>

@@ -1,7 +1,8 @@
 "use server";
 
 import { requireUser } from "@/lib/supabase/server";
-import { EVENT_AIRPORT, EVENT_OFFSET, type Direction, type FlightInput } from "@/lib/rides";
+import { getConference } from "@/lib/conference";
+import { type Direction, type FlightInput } from "@/lib/rides";
 
 type Result = { ok: boolean; error?: string };
 
@@ -9,7 +10,9 @@ export async function submitFlight(input: FlightInput): Promise<Result> {
   const { user, supabase } = await requireUser();
   if (!input.localDateTime) return { ok: false, error: "Add your flight time." };
 
-  const scheduledAt = new Date(`${input.localDateTime}:00${EVENT_OFFSET}`);
+  const conference = await getConference(supabase);
+  const utcOffset = conference?.utc_offset ?? "-04:00";
+  const scheduledAt = new Date(`${input.localDateTime}:00${utcOffset}`);
   if (isNaN(scheduledAt.getTime())) return { ok: false, error: "That time didn't parse." };
 
   const { data: flight, error } = await supabase
@@ -18,7 +21,7 @@ export async function submitFlight(input: FlightInput): Promise<Result> {
       {
         user_id: user.id,
         direction: input.direction,
-        airport: EVENT_AIRPORT,
+        airport: conference?.airport_code ?? "",
         scheduled_at: scheduledAt.toISOString(),
         luggage: true,
       },

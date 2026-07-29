@@ -1,6 +1,78 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-29 (Rides "Share" is now a real join)_
+_Last updated: 2026-07-29 (Algorithm test hardening + a real bug fix in group naming)_
+
+### Update — 2026-07-29 Algorithm test hardening pass
+
+Went through every pure algorithm module in `lib/` (`groupName`, `stay`, `flights`,
+`matching`, `mentorMatch`, `autoMatch`) writing deliberately adversarial edge-case
+scenarios, not just happy-path coverage. Test count: 52 → **78**. One real bug found
+and fixed; everything else was either confirmed-correct-and-now-locked-in via a
+regression test, or confirmed-as-a-known-gap and logged (not silently patched).
+
+- 🐛 **Bug fixed — `lib/groupName.ts`'s `nameGroup()`.** `majority = Math.ceil(n / 2)`
+  was `0` for an empty member list, and every category's hit-count (also `0` for zero
+  members) trivially satisfied `hits >= majority`. An **empty group would confidently
+  get a themed vibe name** (e.g. "Send It" — a climbing name) with zero members
+  actually backing it, instead of falling through to "mixed." Fixed by flooring
+  majority at 1 (`Math.max(1, Math.ceil(n / 2))`). Currently unreachable from the live
+  app (`matchOneSlot` in `app/actions/admin.ts` returns early on zero signups before
+  `nameGroups` is ever called), but `nameGroup`/`nameGroups` are exported, general-
+  purpose functions — this was a real landmine for the next caller. Regression tests
+  in `lib/groupName.test.ts`.
+- **Found, logged, not changed — `lib/matching.ts`'s `validateAssignment`.** Its own
+  comment calls oversize (> max) "a hard fail," but nothing upstream actually enforces
+  that: an indivisible party bigger than `max` (e.g. a solo signup with `party_size:
+  7`) still produces exactly the table you'd expect from `roundRobinGroups`, and
+  `matchOneSlot` inserts it regardless of `validateAssignment`'s `ok: false` — there's
+  no split/reject path, nor could there sensibly be one (a party can't be split
+  across tables). Test added (`lib/matching.test.ts`) to document this as intentional
+  current behavior rather than leave it an implicit assumption. Worth a product call
+  if it ever comes up for real (warn the admin? cap party size at signup?).
+- New coverage, no bugs found (confirms existing behavior is correct, locks it in
+  against regressions): `lib/stay.ts`'s early/late precedence when a stay bookends the
+  viewer's whole window, partial-null dates, and a month-boundary comparison;
+  `lib/flights.ts`'s AeroDataBox live-API normalization path (`fetchArrivals` mocked
+  via `vi.stubGlobal("fetch", …)` — **previously had zero test coverage** for the
+  cancelled/landed/delayed/scheduled status inference and flight-number whitespace
+  stripping), empty/all-cancelled arrival lists, and the "anchor to first arrival, not
+  a sliding window" bucketing behavior; `lib/matching.ts`'s lone-oversized-party and
+  two-oversized-parties cases (confirmed no phantom empty-member groups leak through,
+  which would otherwise insert broken zero-member tables into the DB);
+  `lib/mentorMatch.ts`'s zero-mentor/zero-mentee/empty-roster inputs, tag
+  de-duplication in `jaccard`, and the affinity-floor boundary being inclusive
+  (`affinity === floor` still fuses).
+- `npm test` (78/78), `npx tsc --noEmit`, and `npm run build` (17/17 routes) all clean.
+
+### Update — 2026-07-29 Conference generalization + auto-matching scheduler
+
+Full write-up (feature list + test/verification results, meant to be shared as-is):
+`docs/CONFERENCE-GENERALIZATION.md`. Short version:
+
+- New `conferences` table (migration `0012_conference.sql`) + `/admin` registration
+  form (`AdminConferenceForm`, `app/actions/conference.ts`) — a fork/deployment now
+  configures its own name/location/dates/timezone/airport from the UI instead of
+  hardcoded "UKC 2026" constants scattered across the app.
+- Every hardcoded "UKC 2026" string and `America/New_York`/`MCO`/`-04:00` constant is
+  now sourced from that row (with a generic/`America/New_York` fallback where none is
+  registered yet). Deliberately left alone: `scripts/seed-fake.ts`'s `@ukctest.dev`
+  fake emails, `scripts/e2e/*.mjs`, and the bundled example arrivals JSON — dev/test
+  fixtures, not product surface.
+- Matching can now run on a schedule: `auto_matching_enabled` +
+  `matching_interval_minutes` on the conference row, a pure `shouldAutoMatch()` gate
+  (`lib/autoMatch.ts`, unit tested), and `app/api/cron/auto-match` (bearer-token
+  protected via `CRON_SECRET`) wired to Vercel Cron (`vercel.json`, hourly tick — the
+  admin-configured interval is enforced inside the route). **Vercel Hobby caveat**:
+  Hobby-plan cron is capped at once/day regardless of `vercel.json`'s schedule; Pro is
+  needed for the interval to actually fire more than daily.
+- `runMatching()` (the manual per-slot admin button) and the new `runAllSlotsMatching()`
+  (used by the cron route) now share one matching pipeline (`matchOneSlot()` in
+  `app/actions/admin.ts`) — no duplicated logic between the manual and scheduled paths.
+- **Not done this pass — needs a human with Supabase dashboard access**: migration
+  `0012` has not been applied to the live project (`kxvvnvzfdawsnftgjabl`); no
+  conference is registered yet, so today every page falls back to its generic/default
+  copy. `CRON_SECRET` also isn't set anywhere yet (Vercel env vars + local
+  `.env.local`). Same manual-application pattern as every prior migration in this repo.
 
 ### Update — 2026-07-29 Rides "Share" → real ride-pool join
 

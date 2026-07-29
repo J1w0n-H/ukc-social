@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
+import { getConference } from "@/lib/conference";
 import GroupReveal from "@/components/GroupReveal";
 
 export default async function GroupPage({
@@ -9,6 +10,7 @@ export default async function GroupPage({
 }) {
   const { id } = await params;
   const { user, supabase } = await requireUser();
+  const conference = await getConference(supabase);
 
   // RLS restricts groups/group_members to members — a non-member gets null → 404.
   const { data: group } = await supabase
@@ -52,6 +54,7 @@ export default async function GroupPage({
       slotArea={slot?.area ?? ""}
       members={members}
       meId={user.id}
+      timezone={conference?.timezone}
     />
   );
 }

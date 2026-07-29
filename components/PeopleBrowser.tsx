@@ -148,7 +148,7 @@ export default function PeopleBrowser({
         <p style={{ fontSize: 17, fontWeight: 600, marginTop: 16 }}>You&apos;re early</p>
         <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 6, lineHeight: 1.5 }}>
           No one else has set up a profile yet. Check back soon. This fills up as
-          people arrive for UKC 2026.
+          people arrive.
         </p>
       </div>
     );

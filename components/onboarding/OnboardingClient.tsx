@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { saveProfile, setDinnerSignups } from "@/app/actions/profile";
 import { submitFlight } from "@/app/actions/flights";
+import type { Conference } from "@/lib/conference";
 import StepEvent, { type EventChoice } from "./StepEvent";
 import StepBasics from "./StepBasics";
 import StepInterests from "./StepInterests";
@@ -29,7 +30,13 @@ type Data = {
   flight: Flight;
 };
 
-export default function OnboardingClient({ userId }: { userId: string }) {
+export default function OnboardingClient({
+  userId,
+  conference,
+}: {
+  userId: string;
+  conference: Conference | null;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const step = Math.min(TOTAL_STEPS, Math.max(1, Number(params.get("step")) || 1));
@@ -54,7 +61,7 @@ export default function OnboardingClient({ userId }: { userId: string }) {
   const [data, setData] = useState<Data>(() => {
     if (typeof window === "undefined") return EMPTY;
     try {
-      const raw = localStorage.getItem("ukc-onboarding");
+      const raw = localStorage.getItem("onboarding-draft");
       return raw ? { ...EMPTY, ...JSON.parse(raw) } : EMPTY;
     } catch {
       return EMPTY;
@@ -65,7 +72,7 @@ export default function OnboardingClient({ userId }: { userId: string }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem("ukc-onboarding", JSON.stringify(data));
+      localStorage.setItem("onboarding-draft", JSON.stringify(data));
     } catch {
       /* quota / private mode — draft just won't persist */
     }
@@ -103,7 +110,7 @@ export default function OnboardingClient({ userId }: { userId: string }) {
     if (!a.ok || !b.ok)
       return setError(a.error ?? b.error ?? "Could not finish");
     try {
-      localStorage.removeItem("ukc-onboarding");
+      localStorage.removeItem("onboarding-draft");
     } catch {
       /* ignore */
     }
@@ -146,6 +153,7 @@ export default function OnboardingClient({ userId }: { userId: string }) {
 
       {step === 1 && (
         <StepEvent
+          conference={conference}
           eventId={data.eventId}
           stayStart={data.stayStart}
           stayEnd={data.stayEnd}
@@ -155,7 +163,7 @@ export default function OnboardingClient({ userId }: { userId: string }) {
           onContinue={() =>
             save(
               {
-                event_id: data.eventId || null,
+                event_id: data.eventId === "attending" ? (conference?.id ?? null) : null,
                 stay_start: data.stayStart || null,
                 stay_end: data.stayEnd || null,
               },
@@ -225,6 +233,7 @@ export default function OnboardingClient({ userId }: { userId: string }) {
           error={error}
           onBack={() => goto(4)}
           onFinish={finish}
+          conference={conference}
         />
       )}
     </main>

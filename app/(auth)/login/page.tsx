@@ -33,12 +33,30 @@ function LoginInner() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState(params.get("error") === "auth" ? "That link didn't work. Try again." : "");
   const [cooldown, setCooldown] = useState(0);
+  const [conferenceName, setConferenceName] = useState("");
 
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [cooldown]);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("conferences")
+      .select("name")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data?.name) setConferenceName(data.name);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function resend() {
     setBusy("resend");
@@ -162,7 +180,9 @@ function LoginInner() {
   return (
     <Shell>
       <h1 className="au-title">{mode === "signin" ? "Welcome back" : "Create your account"}</h1>
-      <p className="au-sub">Dinners, rides, and people worth meeting at UKC 2026.</p>
+      <p className="au-sub">
+        Dinners, rides, and people worth meeting{conferenceName ? ` at ${conferenceName}` : ""}.
+      </p>
 
       <button className="au-google" onClick={withGoogle} disabled={!!busy} type="button">
         <GoogleMark />

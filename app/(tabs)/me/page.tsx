@@ -2,16 +2,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
 import { toLocalInput } from "@/lib/rides";
+import { getConference } from "@/lib/conference";
 import SignupGate from "@/components/SignupGate";
 import ProfileEditor from "@/components/ProfileEditor";
 import FlightEditor from "@/components/FlightEditor";
 
-const slotFmt = new Intl.DateTimeFormat("en-US", {
-  weekday: "short",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "America/New_York",
-});
+const fmtSlot = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
 
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
@@ -26,6 +28,9 @@ export default async function MePage() {
       />
     );
   }
+
+  const conference = await getConference(supabase);
+  const slotFmt = fmtSlot(conference?.timezone ?? "America/New_York");
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -62,7 +67,7 @@ export default async function MePage() {
   return (
     <section style={{ padding: "24px 20px" }}>
       <header className="page-head">
-        <p className="page-kicker">UKC 2026</p>
+        <p className="page-kicker">{conference?.name ?? "Me"}</p>
         <h1 className="page-title">Me</h1>
         <p className="page-sub">Your profile, dinners, and tables.</p>
       </header>
@@ -117,8 +122,8 @@ export default async function MePage() {
       </div>
 
       <FlightEditor
-        initialArrival={arrivalFlight ? toLocalInput(arrivalFlight.scheduled_at) : ""}
-        initialDeparture={departureFlight ? toLocalInput(departureFlight.scheduled_at) : ""}
+        initialArrival={arrivalFlight ? toLocalInput(arrivalFlight.scheduled_at, conference?.timezone) : ""}
+        initialDeparture={departureFlight ? toLocalInput(departureFlight.scheduled_at, conference?.timezone) : ""}
       />
 
       <style>{`

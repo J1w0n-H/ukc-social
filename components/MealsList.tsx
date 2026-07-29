@@ -14,16 +14,17 @@ export type Slot = {
 };
 export type Signup = { partySize: number; notes: string };
 
-const dtf = new Intl.DateTimeFormat("en-US", {
-  weekday: "short",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "America/New_York",
-});
+const fmtWhen = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
 
-function whenLine(startsAt: string, area: string) {
+function whenLine(startsAt: string, area: string, timezone: string) {
   // "Wed, 7:00 PM" -> "Wed · 7:00 PM · ChampionsGate"
-  return `${dtf.format(new Date(startsAt)).replace(", ", " · ")} · ${area}`;
+  return `${fmtWhen(timezone).format(new Date(startsAt)).replace(", ", " · ")} · ${area}`;
 }
 
 export default function MealsList({
@@ -32,12 +33,14 @@ export default function MealsList({
   mine: mine0,
   nowMs,
   isGuest = false,
+  timezone = "America/New_York",
 }: {
   slots: Slot[];
   counts: Record<string, number>;
   mine: Record<string, Signup>;
   nowMs: number;
   isGuest?: boolean;
+  timezone?: string;
 }) {
   const router = useRouter();
   const [mine, setMine] = useState(mine0);
@@ -101,7 +104,7 @@ export default function MealsList({
                   {slot.title}
                 </div>
                 <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 4 }}>
-                  {whenLine(slot.starts_at, slot.area)}
+                  {whenLine(slot.starts_at, slot.area, timezone)}
                 </div>
                 <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 3 }}>
                   {count === 0 ? "Be the first in" : `${count} ${count === 1 ? "person" : "people"} in`}
@@ -144,6 +147,7 @@ export default function MealsList({
           onClose={() => setOpenId(null)}
           onJoin={handleJoin}
           onLeave={handleLeave}
+          timezone={timezone}
         />
       )}
 

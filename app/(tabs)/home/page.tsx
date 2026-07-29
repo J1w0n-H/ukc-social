@@ -2,21 +2,24 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
+import { getConference } from "@/lib/conference";
 import Wordmark from "@/components/Wordmark";
 
 const HOUR = 3600_000;
 
-const timeFmt = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "America/New_York",
-});
-const dateFmt = new Intl.DateTimeFormat("en-US", {
-  weekday: "long",
-  month: "long",
-  day: "numeric",
-  timeZone: "America/New_York",
-});
+const fmtTime = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
+const fmtDate = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: timezone,
+  });
 
 const ms = (s: string) => new Date(s).getTime();
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -34,8 +37,11 @@ type Group = {
 
 export default async function HomePage() {
   const { user, supabase } = await requireUser();
-  if (user.is_anonymous) return <GuestHomeSection />;
+  const conference = await getConference(supabase);
+  if (user.is_anonymous) return <GuestHomeSection conferenceName={conference?.name} />;
   const now = Date.now();
+  const timeFmt = fmtTime(conference?.timezone ?? "America/New_York");
+  const dateFmt = fmtDate(conference?.timezone ?? "America/New_York");
 
   const { data: prof } = await supabase
     .from("profiles")
@@ -139,13 +145,13 @@ export default async function HomePage() {
       </header>
 
       {dayOf && nextGroup ? (
-        <DayOf group={nextGroup} names={memberNames} />
+        <DayOf group={nextGroup} names={memberNames} timeFmt={timeFmt} />
       ) : nextGroup ? (
         <Revealed group={nextGroup} names={memberNames} />
       ) : nextSignup ? (
-        <JoinedWaiting slot={nextSignup} count={waitingCount} />
+        <JoinedWaiting slot={nextSignup} count={waitingCount} timeFmt={timeFmt} />
       ) : (
-        <Fresh name={profile.name} />
+        <Fresh name={profile.name} conferenceName={conference?.name} />
       )}
 
       <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
@@ -154,11 +160,11 @@ export default async function HomePage() {
   );
 }
 
-function Fresh({ name }: { name: string }) {
+function Fresh({ name, conferenceName }: { name: string; conferenceName?: string }) {
   const greeting = name.trim() ? `Hey ${firstName(name)}` : "Welcome";
   return (
     <div>
-      <div className="eyebrow">UKC 2026</div>
+      <div className="eyebrow">{conferenceName ?? "Icebreaker"}</div>
       <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 10, lineHeight: 1 }}>
         {greeting}
       </h1>
@@ -264,7 +270,15 @@ function NudgeRow({
   );
 }
 
-function JoinedWaiting({ slot, count }: { slot: Slot; count: number }) {
+function JoinedWaiting({
+  slot,
+  count,
+  timeFmt,
+}: {
+  slot: Slot;
+  count: number;
+  timeFmt: Intl.DateTimeFormat;
+}) {
   return (
     <div>
       <div className="eyebrow">You&apos;re in</div>
@@ -330,7 +344,15 @@ function Revealed({ group, names }: { group: Group; names: string[] }) {
   );
 }
 
-function DayOf({ group, names }: { group: Group; names: string[] }) {
+function DayOf({
+  group,
+  names,
+  timeFmt,
+}: {
+  group: Group;
+  names: string[];
+  timeFmt: Intl.DateTimeFormat;
+}) {
   const meet = group.meet_time ?? group.slot?.starts_at ?? null;
   return (
     <div>
@@ -368,10 +390,10 @@ function DayOf({ group, names }: { group: Group; names: string[] }) {
 }
 
 // Home for an anonymous guest: no personal data, just what signing up unlocks.
-function GuestHomeSection() {
+function GuestHomeSection({ conferenceName }: { conferenceName?: string }) {
   return (
     <section style={{ padding: "24px 20px" }}>
-      <div className="eyebrow">UKC 2026</div>
+      <div className="eyebrow">{conferenceName ?? "Icebreaker"}</div>
       <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 10, lineHeight: 1 }}>
         Look around
       </h1>

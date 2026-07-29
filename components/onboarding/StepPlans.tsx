@@ -2,23 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { toLocalInput } from "@/lib/rides";
+import type { Conference } from "@/lib/conference";
 
 type Slot = { id: string; title: string; starts_at: string };
 export type Flight = { arrival: string; departure: string };
 
-// Conference dates as a starting point — picking a datetime-local value from
-// completely blank means setting year/month/day/hour/minute one at a time,
-// which is exactly the friction this sidesteps. Still fully editable.
-const DEFAULT_ARRIVAL = "2026-08-05T12:00";
-const DEFAULT_DEPARTURE = "2026-08-08T12:00";
-
-function whenLabel(iso: string) {
+function whenLabel(iso: string, timezone: string) {
   const d = new Date(iso);
   return d.toLocaleString(undefined, {
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "America/New_York",
+    timeZone: timezone,
   });
 }
 
@@ -31,6 +27,7 @@ export default function StepPlans({
   onBack,
   busy,
   error,
+  conference,
 }: {
   value: string[];
   onChange: (v: string[]) => void;
@@ -40,7 +37,18 @@ export default function StepPlans({
   onBack: () => void;
   busy: boolean;
   error: string;
+  conference: Conference | null;
 }) {
+  const timezone = conference?.timezone ?? "America/New_York";
+  // Conference dates as a starting point — picking a datetime-local value from
+  // completely blank means setting year/month/day/hour/minute one at a time,
+  // which is exactly the friction this sidesteps. Still fully editable.
+  const defaultArrival = conference
+    ? `${toLocalInput(conference.starts_at, timezone).slice(0, 10)}T12:00`
+    : "";
+  const defaultDeparture = conference
+    ? `${toLocalInput(conference.ends_at, timezone).slice(0, 10)}T12:00`
+    : "";
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [showFlight, setShowFlight] = useState(!!(flight.arrival || flight.departure));
 
@@ -86,7 +94,7 @@ export default function StepPlans({
                 <span style={{ flex: 1 }}>
                   <span style={{ display: "block", fontWeight: 600 }}>{s.title}</span>
                   <span style={{ fontSize: 13, color: "var(--ink-2)" }}>
-                    {whenLabel(s.starts_at)}
+                    {whenLabel(s.starts_at, timezone)}
                   </span>
                 </span>
               </button>
@@ -102,8 +110,8 @@ export default function StepPlans({
           onClick={() => {
             setShowFlight((v) => {
               const opening = !v;
-              if (opening && !flight.arrival && !flight.departure) {
-                onFlightChange({ arrival: DEFAULT_ARRIVAL, departure: DEFAULT_DEPARTURE });
+              if (opening && !flight.arrival && !flight.departure && defaultArrival) {
+                onFlightChange({ arrival: defaultArrival, departure: defaultDeparture });
               }
               return opening;
             });

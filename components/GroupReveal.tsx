@@ -16,27 +16,26 @@ type Member = {
 };
 
 const EASE = "cubic-bezier(0.16,1,0.3,1)";
-const TZ = "America/New_York";
 
-function fmtContext(startsAt: string | null, area: string) {
+function fmtContext(startsAt: string | null, area: string, timezone: string) {
   if (!startsAt) return area;
   const d = new Date(startsAt);
   const when = d.toLocaleString("en-US", {
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: TZ,
+    timeZone: timezone,
   });
   return area ? `${when} · ${area}` : when;
 }
 
-function fmtTime(t: string | null) {
+function fmtTime(t: string | null, timezone: string) {
   if (!t) return "";
   return new Date(t).toLocaleString("en-US", {
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: TZ,
+    timeZone: timezone,
   });
 }
 
@@ -81,6 +80,7 @@ export default function GroupReveal({
   slotArea,
   members,
   meId,
+  timezone = "America/New_York",
 }: {
   groupId: string;
   name: string;
@@ -92,6 +92,7 @@ export default function GroupReveal({
   slotArea: string;
   members: Member[];
   meId?: string;
+  timezone?: string;
 }) {
   const myInterests = new Set(
     (members.find((m) => m.userId === meId)?.interests ?? []).map((x) => x.toLowerCase()),
@@ -114,7 +115,7 @@ export default function GroupReveal({
     }
   }, [groupId]);
 
-  const context = [slotTitle, fmtContext(slotStartsAt, slotArea)]
+  const context = [slotTitle, fmtContext(slotStartsAt, slotArea, timezone)]
     .filter(Boolean)
     .join(" · ");
 
@@ -302,7 +303,7 @@ export default function GroupReveal({
                 whiteSpace: "nowrap",
               }}
             >
-              {fmtTime(meetTime)}
+              {fmtTime(meetTime, timezone)}
             </div>
           )}
         </div>

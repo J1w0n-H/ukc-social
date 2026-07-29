@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { Slot, Signup } from "./MealsList";
 
-const dtf = new Intl.DateTimeFormat("en-US", {
-  weekday: "long",
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "America/New_York",
-});
+const fmtWhen = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
 
 const PARTY: { label: string; val: number }[] = [
   { label: "Just me", val: 1 },
@@ -27,6 +28,7 @@ export default function JoinSheet({
   onClose,
   onJoin,
   onLeave,
+  timezone = "America/New_York",
 }: {
   slot: Slot;
   joined: boolean;
@@ -35,7 +37,9 @@ export default function JoinSheet({
   onClose: () => void;
   onJoin: (slotId: string, partySize: number, notes: string) => void;
   onLeave: (slotId: string) => void;
+  timezone?: string;
 }) {
+  const dtf = fmtWhen(timezone);
   const [partySize, setPartySize] = useState<number>(signup?.partySize ?? 1);
   const [notes, setNotes] = useState(signup?.notes ?? "");
 

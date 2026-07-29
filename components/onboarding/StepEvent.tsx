@@ -1,14 +1,27 @@
 "use client";
 
-export type EventChoice = "ukc2026" | "ksea2026" | "none";
+import type { Conference } from "@/lib/conference";
 
-const EVENTS: { id: EventChoice; name: string; when: string; defaultStay?: [string, string] }[] = [
-  { id: "ukc2026", name: "UKC 2026", when: "Aug 5–8 · ChampionsGate, FL", defaultStay: ["2026-08-05", "2026-08-08"] },
-  { id: "ksea2026", name: "KSEA Conference", when: "Oct 2026 · Washington, DC" },
-  { id: "none", name: "None of these", when: "I'm just exploring the app" },
-];
+export type EventChoice = "attending" | "none";
+
+// Renders the single conference an admin has registered (see /admin →
+// AdminConferenceForm) instead of a hardcoded list of specific conferences.
+function dateOnly(iso: string, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date(iso));
+}
+
+function formatWhen(conference: Conference): string {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: conference.timezone,
+  });
+  const when = `${fmt.format(new Date(conference.starts_at))} – ${fmt.format(new Date(conference.ends_at))}`;
+  return conference.location ? `${when} · ${conference.location}` : when;
+}
 
 export default function StepEvent({
+  conference,
   eventId,
   stayStart,
   stayEnd,
@@ -17,6 +30,7 @@ export default function StepEvent({
   busy,
   error,
 }: {
+  conference: Conference | null;
   eventId: EventChoice | "";
   stayStart: string;
   stayEnd: string;
@@ -30,34 +44,48 @@ export default function StepEvent({
   return (
     <>
       <span className="ob-kicker">Set up · 1 of 5</span>
-      <h1 className="ob-title">Which event are you here for?</h1>
+      <h1 className="ob-title">
+        {conference ? `Are you here for ${conference.name}?` : "Which event are you here for?"}
+      </h1>
       <p className="ob-sub">This tunes who you&apos;re matched with.</p>
 
       <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-        {EVENTS.map((ev) => {
-          const on = eventId === ev.id;
-          return (
-            <button
-              key={ev.id}
-              type="button"
-              className={on ? "ev-card on" : "ev-card"}
-              onClick={() =>
-                onChange({
-                  eventId: ev.id,
-                  // Pre-fill the stay dates to the event's own dates so picking
-                  // isn't a cold empty date input — still fully editable after.
-                  ...(ev.defaultStay && !stayStart && !stayEnd
-                    ? { stayStart: ev.defaultStay[0], stayEnd: ev.defaultStay[1] }
-                    : {}),
-                })
-              }
-              aria-pressed={on}
-            >
-              <span className="ev-name">{ev.name}</span>
-              <span className="ev-when">{ev.when}</span>
-            </button>
-          );
-        })}
+        {conference ? (
+          <button
+            type="button"
+            className={eventId === "attending" ? "ev-card on" : "ev-card"}
+            onClick={() =>
+              onChange({
+                eventId: "attending",
+                // Pre-fill the stay dates to the conference's own dates so picking
+                // isn't a cold empty date input — still fully editable after.
+                ...(!stayStart && !stayEnd
+                  ? {
+                      stayStart: dateOnly(conference.starts_at, conference.timezone),
+                      stayEnd: dateOnly(conference.ends_at, conference.timezone),
+                    }
+                  : {}),
+              })
+            }
+            aria-pressed={eventId === "attending"}
+          >
+            <span className="ev-name">{conference.name}</span>
+            <span className="ev-when">{formatWhen(conference)}</span>
+          </button>
+        ) : (
+          <p style={{ color: "var(--ink-3)", fontSize: 13, lineHeight: 1.5 }}>
+            No conference is set up yet — ask an admin to register one in /admin.
+          </p>
+        )}
+        <button
+          type="button"
+          className={eventId === "none" ? "ev-card on" : "ev-card"}
+          onClick={() => onChange({ eventId: "none" })}
+          aria-pressed={eventId === "none"}
+        >
+          <span className="ev-name">None of these</span>
+          <span className="ev-when">I&apos;m just exploring the app</span>
+        </button>
       </div>
 
       <p className="ob-label" style={{ marginTop: 24, marginBottom: 0 }}>

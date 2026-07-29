@@ -60,6 +60,19 @@ export function roundRobinGroups(signups: SignupProfile[], target = 5): MatchGro
       rationale: "Grouped to keep tables even.", suggestedPlace: "" }));
 }
 
+// Pure + exported so the prompt text is unit-testable without hitting the
+// Anthropic API. `eventName`/`location` come from the admin-registered
+// `conferences` row (lib/conference.ts) — generic fallback if unset.
+export function buildMatchPrompt(
+  roster: unknown,
+  opts: { min: number; max: number; eventName?: string; location?: string },
+): string {
+  const { min, max, eventName, location } = opts;
+  const event = eventName || "conference";
+  const place = location ? ` near ${location}` : "";
+  return `Group these ${event} attendees into dinner tables by shared research interests and vibe. Each table must seat ${min}-${max} people TOTAL. IMPORTANT: an attendee with "comesWithGroupOf": N arrives with a party of N people (including themselves) — count them as N seats and keep that whole party at one table. Every attendee appears in EXACTLY one group. Give each group a short fun name, a one-sentence "why you matched" rationale (warm, specific, mention shared interests), and a suggested cuisine${place} (local options welcome).\n\nAttendees:\n${JSON.stringify(roster, null, 1)}`;
+}
+
 const TOOL = {
   name: "submit_groups",
   description: "Submit the final grouping",
@@ -74,8 +87,8 @@ const TOOL = {
 };
 
 export async function matchSlot(signups: SignupProfile[],
-  opts: { min?: number; max?: number; model?: string } = {}): Promise<MatchGroup[]> {
-  const { min = 4, max = 6, model = "claude-sonnet-5" } = opts;
+  opts: { min?: number; max?: number; model?: string; eventName?: string; location?: string } = {}): Promise<MatchGroup[]> {
+  const { min = 4, max = 6, model = "claude-sonnet-5", eventName, location } = opts;
   const sizes = new Map(signups.map(s => [s.userId, s.partySize ?? 1]));
   const total = headcountOf(signups.map(s => s.userId), sizes);
   if (total <= max) return roundRobinGroups(signups);
@@ -83,7 +96,7 @@ export async function matchSlot(signups: SignupProfile[],
   const ids = signups.map(s => s.userId);
   const roster = signups.map(s => (s.partySize ?? 1) > 1
     ? { ...s, comesWithGroupOf: s.partySize } : s);
-  const prompt = `Group these UKC 2026 conference attendees into dinner tables by shared research interests and vibe. Each table must seat ${min}-${max} people TOTAL. IMPORTANT: an attendee with "comesWithGroupOf": N arrives with a party of N people (including themselves) — count them as N seats and keep that whole party at one table. Every attendee appears in EXACTLY one group. Give each group a short fun name, a one-sentence "why you matched" rationale (warm, specific, mention shared interests), and a suggested cuisine near ChampionsGate FL (Korean options welcome).\n\nAttendees:\n${JSON.stringify(roster, null, 1)}`;
+  const prompt = buildMatchPrompt(roster, { min, max, eventName, location });
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await client.messages.create({ model, max_tokens: 4096,
       tools: [TOOL], tool_choice: { type: "tool", name: "submit_groups" },

@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_KR } from "next/font/google";
+import { createServerSupabase } from "@/lib/supabase/server";
+import { getConference } from "@/lib/conference";
 import "./globals.css";
 
 // Inter for Latin text everywhere (headings + body); Noto Sans KR loaded
@@ -22,11 +24,16 @@ const kr = Noto_Sans_KR({
   variable: "--font-kr",
 });
 
-export const metadata: Metadata = {
-  title: "Icebreaker",
-  description:
-    "Find your table at UKC 2026: dinners, rides, and people worth meeting.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = await createServerSupabase();
+  const conference = await getConference(supabase);
+  return {
+    title: "Icebreaker",
+    description: conference?.name
+      ? `Find your table at ${conference.name}: dinners, rides, and people worth meeting.`
+      : "Find your table: dinners, rides, and people worth meeting.",
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

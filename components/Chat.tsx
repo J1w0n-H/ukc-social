@@ -17,18 +17,19 @@ type Msg = {
 
 type Member = { userId: string; name: string; photo_url: string | null };
 
-const TZ = "America/New_York";
-const timeFmt = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: TZ,
-});
-const dayTimeFmt = new Intl.DateTimeFormat("en-US", {
-  weekday: "short",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: TZ,
-});
+const fmtTime = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
+const fmtDayTime = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
 
 // A run break starts a new visual group: different speaker, or >5min gap.
 const RUN_GAP_MS = 5 * 60 * 1000;
@@ -87,6 +88,7 @@ export default function Chat({
   members,
   meetPlace,
   meetTime,
+  timezone = "America/New_York",
 }: {
   channelType: "meal" | "ride";
   channelId: string;
@@ -96,7 +98,10 @@ export default function Chat({
   members: Member[];
   meetPlace: string | null;
   meetTime: string | null;
+  timezone?: string;
 }) {
+  const timeFmt = fmtTime(timezone);
+  const dayTimeFmt = fmtDayTime(timezone);
   const router = useRouter();
   const supabase = useRef(createClient()).current;
   const [messages, setMessages] = useState<Msg[]>([]);
