@@ -1,6 +1,36 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-28 (Icebreaker reskin + Event/stay + People "Say hi")_
+_Last updated: 2026-07-29 (live end-to-end verification on a new Supabase project)_
+
+### Update — 2026-07-29 verified live end-to-end on a fresh Supabase project
+
+Applied all 10 migrations to a brand-new project (`kxvvnvzfdawsnftgjabl`) and drove the real
+app with Playwright against it (magic-link login via `supabase.auth.admin.generateLink`, no
+mocking) — not just code tracing this time:
+
+- Full 5-step onboarding (Event & stay → Basics → Interests → Contact & bio → Plans+flight),
+  including clicking Back from step 2 back to step 1 to confirm last session's fix holds.
+- Joined a real dinner slot; the join sheet's new "Tables revealed" line rendered correctly.
+- Ran `/admin` matching for real (22 signups → 4 groups); round-robin fallback fired since
+  `ANTHROPIC_API_KEY` wasn't set for this project — rationale correctly read the generic
+  "Grouped to keep tables even." — but the table still got a real bank name ("The Grind",
+  from the shared "Coffee chat" vibe), confirming the already-logged name/rationale
+  mismatch gap below is real and reproducible, not just theoretical.
+- Group reveal showed the Frozen-cast roster with "you both like X" shared-interest
+  highlighting; opened group chat and sent a message — delivered and rendered live.
+- People's stay-badge/Say-hi flow worked against real seeded data
+  (`scripts/seed-fake.ts`, now 20 Frozen-cast profiles).
+- One anomaly, not reproduced on retry: a single test user's `profiles` row was briefly
+  missing after what looked like a successful onboarding finish, on the very first complex
+  multi-context script run against this brand-new project (whose own dashboard was showing
+  occasional transient 500s at the time). Two clean re-tests (fresh onboarding, and
+  re-login of an already-onboarded user) both completed correctly. Flagging as an
+  unconfirmed, unreproduced anomaly rather than a code fix — if a real user ever reports
+  "I finished setup but the app sent me back to onboarding," this is the first thing to
+  check.
+
+Local `.env.local` (gitignored) now points at this live project instead of the placeholder
+values from earlier sessions.
 
 ### Update — 2026-07-28 Icebreaker reskin + Event & stay + People "Say hi"
 
