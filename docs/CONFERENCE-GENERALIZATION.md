@@ -79,13 +79,15 @@ the registered conference, with a generic fallback ("Icebreaker" / plain copy /
 - **`app/api/cron/auto-match/route.ts`** — checks a bearer-token `CRON_SECRET`, loads
   the conference, calls `shouldAutoMatch`; if true, runs `runAllSlotsMatching` and
   stamps `last_auto_match_at`.
-- **`vercel.json`** — registers the route on an hourly Vercel Cron tick. The actual
-  admin-configured interval (e.g. "every 6 hours") is enforced *inside* the route by
-  `shouldAutoMatch`, not by this schedule — the tick just needs to fire at least as
-  often as the shortest interval an admin might configure.
-  **Caveat**: Vercel's Hobby plan caps cron at once/day regardless of what's in
-  `vercel.json` — Pro is required for the hourly tick to actually run hourly. On
-  Hobby, auto-matching will still work, just at most once a day.
+- **`vercel.json`** — registers the route on a daily Vercel Cron tick (`0 0 * * *`).
+  The actual admin-configured interval (e.g. "every 6 hours") is enforced *inside*
+  the route by `shouldAutoMatch`, not by this schedule.
+  **Correction from an earlier draft of this doc**: Vercel's Hobby plan doesn't just
+  throttle a too-frequent cron schedule down to daily — it **rejects the deployment
+  outright** ("Deployment failed", confirmed live: an hourly schedule broke every
+  deploy on this project's Hobby plan from this point on). `vercel.json` is set to
+  daily to actually deploy on Hobby; on Pro, tighten the schedule (e.g. hourly) to
+  let sub-daily admin-configured intervals actually fire that often.
 - New env var: `CRON_SECRET` (added to `.env.example`) — must match what's configured
   as the Cron job's bearer token in Vercel.
 

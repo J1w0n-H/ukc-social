@@ -1,6 +1,32 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-29 (Algorithm test hardening + a real bug fix in group naming)_
+_Last updated: 2026-07-29 (Fixed a live Vercel deploy break: hourly cron isn't allowed on Hobby)_
+
+### Update — 2026-07-29 Vercel deployment was silently broken since the conference-gen push
+
+Every deploy since `9f8a5ca` (conference generalization + auto-matching, the first
+commit in today's four-phase pass) was failing on Vercel — confirmed live via the
+GitHub commit-status check ("Deployment failed") and the Deployments tab, which
+showed the last **successful** deploy stuck at `42f6f27` (the commit right before
+this session started) while every commit after it errored.
+
+- **Root cause**: `vercel.json`'s cron schedule (`"0 * * * *"`, hourly) — Vercel's
+  Hobby plan doesn't quietly cap an hourly cron down to daily execution the way the
+  earlier write-up in this doc and `docs/CONFERENCE-GENERALIZATION.md` assumed. It
+  **rejects the deployment outright**. That assumption was wrong and is corrected in
+  both docs now.
+- **Fix**: `vercel.json`'s schedule changed to `"0 0 * * *"` (daily) — deploys on
+  Hobby again. The admin-configured `matching_interval_minutes` is still enforced
+  *inside* `app/api/cron/auto-match` by `shouldAutoMatch()`, independent of this
+  schedule; on Pro, the schedule itself could be tightened (e.g. hourly) so a
+  sub-daily admin interval actually gets to fire that often.
+- **How this was diagnosed**: user reported Vercel only showing a build from ~19h
+  ago; checked `git log` on both remotes (`fork` = this repo, had all 5 commits;
+  `origin` = the original upstream, stale since 2026-07-23 — ruled out as unrelated);
+  user confirmed via GitHub's commit-status check that Vercel deployments were
+  attempted and failing, not simply not triggered.
+- **Not yet confirmed**: whether this was the *only* deploy blocker — waiting on the
+  next deploy attempt to confirm green before calling this fully resolved.
 
 ### Update — 2026-07-29 Algorithm test hardening pass
 
@@ -61,10 +87,10 @@ Full write-up (feature list + test/verification results, meant to be shared as-i
 - Matching can now run on a schedule: `auto_matching_enabled` +
   `matching_interval_minutes` on the conference row, a pure `shouldAutoMatch()` gate
   (`lib/autoMatch.ts`, unit tested), and `app/api/cron/auto-match` (bearer-token
-  protected via `CRON_SECRET`) wired to Vercel Cron (`vercel.json`, hourly tick — the
-  admin-configured interval is enforced inside the route). **Vercel Hobby caveat**:
-  Hobby-plan cron is capped at once/day regardless of `vercel.json`'s schedule; Pro is
-  needed for the interval to actually fire more than daily.
+  protected via `CRON_SECRET`) wired to Vercel Cron (`vercel.json`, daily tick — the
+  admin-configured interval is enforced inside the route). **Vercel Hobby caveat**
+  (corrected below): a too-frequent schedule doesn't just get throttled, it breaks
+  the deploy outright — `vercel.json` is set to daily so it actually ships on Hobby.
 - `runMatching()` (the manual per-slot admin button) and the new `runAllSlotsMatching()`
   (used by the cron route) now share one matching pipeline (`matchOneSlot()` in
   `app/actions/admin.ts`) — no duplicated logic between the manual and scheduled paths.
