@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Slot = { id: string; title: string; starts_at: string };
-export type Flight = { airline: string; flightNo: string; localDateTime: string };
+export type Flight = { localDateTime: string };
 
 function whenLabel(iso: string) {
   const d = new Date(iso);
@@ -36,9 +36,7 @@ export default function StepPlans({
   error: string;
 }) {
   const [slots, setSlots] = useState<Slot[] | null>(null);
-  const [showFlight, setShowFlight] = useState(
-    !!(flight.airline || flight.flightNo || flight.localDateTime),
-  );
+  const [showFlight, setShowFlight] = useState(!!flight.localDateTime);
 
   useEffect(() => {
     createClient()
@@ -51,12 +49,6 @@ export default function StepPlans({
 
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
-
-  const FLIGHT_FIELDS = [
-    ["airline", "Airline", "Airline (e.g. Korean Air)", "text"],
-    ["flightNo", "Flight number", "Flight number (e.g. KE081)", "text"],
-    ["localDateTime", "Arrival", "Arrival", "datetime-local"],
-  ] as const;
 
   return (
     <>
@@ -104,23 +96,20 @@ export default function StepPlans({
           onClick={() => setShowFlight((v) => !v)}
           aria-expanded={showFlight}
         >
-          {showFlight ? "− Flight info" : "+ Add flight info (optional)"}
+          {showFlight ? "− When do you land?" : "+ When do you land? (optional)"}
         </button>
         {showFlight && (
           <div style={{ display: "flex", flexDirection: "column", marginTop: 4 }}>
-            {FLIGHT_FIELDS.map(([key, label, ph, type]) => (
-              <input
-                key={key}
-                type={type}
-                className="ob-field"
-                aria-label={label}
-                value={flight[key]}
-                placeholder={ph}
-                onChange={(e) => onFlightChange({ ...flight, [key]: e.target.value })}
-              />
-            ))}
+            <input
+              type="datetime-local"
+              className="ob-field"
+              aria-label="Arrival time"
+              value={flight.localDateTime}
+              onChange={(e) => onFlightChange({ localDateTime: e.target.value })}
+            />
             <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 10 }}>
-              Saved to Rides — you can refine the details (direction, luggage) there anytime.
+              We&apos;ll match you with others landing near the same time — no need for the
+              flight number, just when. Add details on Rides anytime.
             </p>
           </div>
         )}
