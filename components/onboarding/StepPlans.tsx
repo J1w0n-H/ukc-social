@@ -31,8 +31,6 @@ export default function StepPlans({
   error: string;
 }) {
   const [slots, setSlots] = useState<Slot[] | null>(null);
-  const [showFlight, setShowFlight] = useState(false);
-  const [flight, setFlight] = useState({ airline: "", number: "", arrival: "" });
 
   useEffect(() => {
     createClient()
@@ -43,33 +41,8 @@ export default function StepPlans({
       .then(({ data }) => setSlots((data as Slot[]) ?? []));
   }, []);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("ukc-flight");
-      if (raw) {
-        setFlight(JSON.parse(raw));
-        setShowFlight(true);
-      }
-    } catch {
-      /* ignore malformed */
-    }
-  }, []);
-
-  function saveFlight(next: typeof flight) {
-    setFlight(next);
-    const empty = !next.airline && !next.number && !next.arrival;
-    if (empty) localStorage.removeItem("ukc-flight");
-    else localStorage.setItem("ukc-flight", JSON.stringify(next));
-  }
-
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
-
-  const FLIGHT_FIELDS = [
-    ["airline", "Airline", "Airline (e.g. Korean Air)", "text"],
-    ["number", "Flight number", "Flight number (e.g. KE081)", "text"],
-    ["arrival", "Arrival", "Arrival", "datetime-local"],
-  ] as const;
 
   return (
     <>
@@ -107,35 +80,6 @@ export default function StepPlans({
               </button>
             );
           })
-        )}
-      </div>
-
-      <div style={{ marginTop: 22 }}>
-        <button
-          type="button"
-          className="ob-textlink"
-          onClick={() => setShowFlight((v) => !v)}
-          aria-expanded={showFlight}
-        >
-          {showFlight ? "− Flight info" : "+ Add flight info (optional)"}
-        </button>
-        {showFlight && (
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 4 }}>
-            {FLIGHT_FIELDS.map(([key, label, ph, type]) => (
-              <input
-                key={key}
-                type={type}
-                className="ob-field"
-                aria-label={label}
-                value={flight[key]}
-                placeholder={ph}
-                onChange={(e) => saveFlight({ ...flight, [key]: e.target.value })}
-              />
-            ))}
-            <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 10 }}>
-              Used later to suggest airport rides. You can add it anytime.
-            </p>
-          </div>
         )}
       </div>
 

@@ -9,9 +9,6 @@ const timeFmt = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/New_York",
 });
 
-const one = <T,>(v: T | T[] | null | undefined): T | null =>
-  Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
-
 type FlightRow = {
   id: string;
   user_id: string;
@@ -21,7 +18,6 @@ type FlightRow = {
   airline: string;
   flight_no: string;
   scheduled_at: string;
-  profile: { name: string } | { name: string }[] | null;
 };
 
 export default async function RidesPage() {
@@ -31,18 +27,27 @@ export default async function RidesPage() {
   const { data, error } = await supabase
     .from("flights")
     .select(
-      "id, user_id, direction, other_city, other_iata, airline, flight_no, scheduled_at, profile:profiles(name)",
+      "id, user_id, direction, other_city, other_iata, airline, flight_no, scheduled_at",
     )
     .eq("airport", EVENT_AIRPORT)
     .order("scheduled_at", { ascending: true });
 
   const flights: FlightRow[] = error ? [] : ((data as FlightRow[]) ?? []);
 
+  // Names via directory_profiles (public fields, readable by anyone signed in),
+  // not a profiles(...) embed — most posters here don't yet share a channel with
+  // the viewer, and profiles' own RLS only opens up once they do.
+  const posterIds = [...new Set(flights.map((f) => f.user_id))];
+  const { data: posters } = posterIds.length
+    ? await supabase.from("directory_profiles").select("id, name").in("id", posterIds)
+    : { data: [] as { id: string; name: string }[] };
+  const nameById = new Map((posters ?? []).map((p) => [p.id, p.name]));
+
   const toRow = (f: FlightRow): Row => {
     const t = new Date(f.scheduled_at).getTime();
     return {
       id: f.id,
-      name: one<{ name: string }>(f.profile)?.name || "Someone",
+      name: nameById.get(f.user_id) || "Someone",
       timeLabel: timeFmt.format(t),
       city: f.other_city,
       iata: f.other_iata,

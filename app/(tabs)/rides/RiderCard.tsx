@@ -41,7 +41,7 @@ export function RiderCard({
         {isMe ? (
           <span className="arr-done">Posted</span>
         ) : sent ? (
-          <span className="arr-done">Requested</span>
+          <span className="arr-done">Noted</span>
         ) : (
           <button
             type="button"
@@ -56,7 +56,7 @@ export function RiderCard({
 
       {sent && !isMe && (
         <div className="arr-ack" role="status">
-          <span>{name} gets your name and can message you.</span>
+          <span>Not sent to {name} yet — reach out to them directly for now.</span>
           <button type="button" className="arr-undo" onClick={() => setSent(false)}>
             Undo
           </button>

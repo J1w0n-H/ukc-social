@@ -1,6 +1,35 @@
 # UKC Social — Handoff / Status
 
-_Last updated: 2026-07-19 (autonomous build + live QA run; + feature/polish run)_
+_Last updated: 2026-07-28 (bug review pass)_
+
+### Update — 2026-07-28 bug review pass
+- **Security fix (apply promptly): migration `0008_profiles_contact_rls.sql`.** The
+  `profiles` SELECT policy allowed any signed-in user — including anonymous guests — to
+  read every column of every profile directly (kakao, linkedin, dietary, birthday), not
+  just the public fields exposed through `directory_profiles`. The app's "contacts unlock
+  only once you share a table" gate (`can_see_contact()`) was only ever enforced in
+  `PeopleBrowser`'s UI, not in the database, so it was trivially bypassable with a direct
+  Supabase client call. Fixed by scoping the base policy to the owner or anyone who
+  already `shares_channel()` with them — every existing read (Me, GroupReveal, Chat
+  roster) still works since those only ever query someone the caller already shares a
+  group with. **Needs to be applied to the live Supabase project before the event.**
+- **Fixed:** onboarding's Step 3 "Add flight info" field wrote to `localStorage` and was
+  never read by anything else — a person's flight info typed there during onboarding was
+  silently discarded despite the UI claiming "Used later to suggest airport rides."
+  Removed; `/rides/add` (with Claude screenshot parsing) is the real, working flow and is
+  already surfaced from Home's "Line these up" hub.
+- **Fixed:** Rides' "Share" button claimed "*{name} gets your name and can message you*"
+  — it's `useState` only, nothing is sent anywhere (no `ride_members`/message row is
+  written). Copy corrected to not claim a connection was made.
+- **Flagged, not fixed (needs a product/scope decision):** `/mentor` presents opting in as
+  a working 1:1 matching feature ("we pair you... and make the intro"), but
+  `assignMentees`/`suggestGroups` (`lib/mentorMatch.ts`) are only ever invoked from
+  `/match-demo` against synthetic data — there is no admin action, table, or job that runs
+  matching against real signed-up users. `docs/mentor-match-logic.md` already tracks this
+  as "the model, not yet built," but the live page doesn't currently say so. Worth a call
+  on whether to soft-launch the page as "coming soon" before Aug 5, or prioritize building
+  the batch job (needs a `matches` table + a daily admin/cron trigger, per that doc's
+  "What building it needs" section).
 
 ### Update — 2026-07-19 feature + polish run
 - **Party size ("come as a group")** shipped: join-time "How many are you?" (1–4), matching
@@ -50,6 +79,9 @@ cloud database (project `ctkjzenmwvqgrncxinvt`, "sunny2.0"):
 
 ## Remaining Human TODOs
 
+0. **Apply migration `0008_profiles_contact_rls.sql` to the live Supabase project.**
+   Security fix — see the 2026-07-28 note above. Do this before the event; real kakao/
+   linkedin/dietary/birthday data is exposed to any signed-in user until it's applied.
 1. **Anthropic API key** — add `ANTHROPIC_API_KEY=` to `.env.local`. Without it, matching
    uses the round-robin fallback (groups are correct, but the rationale is the generic
    "Grouped to keep tables even" instead of the warm AI blurb). This is the only feature
