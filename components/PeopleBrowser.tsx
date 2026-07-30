@@ -70,6 +70,7 @@ export default function PeopleBrowser({
 }) {
   const [query, setQuery] = useState("");
   const [activeInterest, setActiveInterest] = useState<string | null>(null);
+  const [activeSchool, setActiveSchool] = useState<string | null>(null);
   const [activeStay, setActiveStay] = useState<StayFilter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contacts>({ state: "loading" });
@@ -116,6 +117,12 @@ export default function PeopleBrowser({
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [people]);
 
+  const allSchools = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of people) if (p.school.trim()) set.add(p.school.trim());
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [people]);
+
   const relationOf = (p: Person) =>
     stayRelation({ start: p.stay_start, end: p.stay_end }, myStay);
 
@@ -123,6 +130,7 @@ export default function PeopleBrowser({
     const q = query.trim().toLowerCase();
     return people.filter((p) => {
       if (activeInterest && !p.interests.includes(activeInterest)) return false;
+      if (activeSchool && p.school !== activeSchool) return false;
       if (activeStay !== "all" && relationOf(p) !== activeStay) return false;
       if (!q) return true;
       return (
@@ -130,7 +138,7 @@ export default function PeopleBrowser({
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, query, activeInterest, activeStay, myStay]);
+  }, [people, query, activeInterest, activeSchool, activeStay, myStay]);
 
   const active = people.find((p) => p.id === openId) ?? null;
 
@@ -252,6 +260,25 @@ export default function PeopleBrowser({
         </div>
       )}
 
+      {allSchools.length > 0 && (
+        <div className="chip-row">
+          {allSchools.map((school) => {
+            const on = activeSchool === school;
+            return (
+              <button
+                key={school}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setActiveSchool(on ? null : school)}
+                className={on ? "fchip fchip--on" : "fchip"}
+              >
+                {school}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div style={{ padding: "40px 0", textAlign: "center" }}>
           <p style={{ color: "var(--ink-2)", fontSize: 15 }}>
@@ -262,6 +289,7 @@ export default function PeopleBrowser({
             onClick={() => {
               setQuery("");
               setActiveInterest(null);
+              setActiveSchool(null);
               setActiveStay("all");
             }}
             style={{

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
 import Wordmark from "@/components/Wordmark";
+import { PeopleSection } from "../people/page";
 
 const HOUR = 3600_000;
 
@@ -155,6 +156,12 @@ export default async function HomePage() {
       )}
 
       <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
+
+      <div style={{ marginTop: 32 }}>
+        <div className="hub-head">People here</div>
+        <PeopleSection />
+      </div>
+
       <LinkStyles />
     </section>
   );
