@@ -2,6 +2,24 @@
 
 _Last updated: 2026-07-30 (Meal slots now auto-derived from the conference's dates)_
 
+## Repo & deploy setup — read this before touching git remotes
+
+`origin` (`sunnycho100/ukc-social`) is the original upstream this was forked
+from — stale since 2026-07-23, and **not** connected to Vercel. `fork`
+(`J1w0n-H/ukc-social`) is where every commit in this doc actually lives, and
+is what Vercel + the live Supabase project are wired to.
+
+**`fork` is the canonical repo going forward** — decided explicitly on
+2026-07-30 rather than merging into `origin`, because merging there wouldn't
+update the live Vercel deploy (it only watches `fork`'s `main`), and
+re-pointing Vercel to `origin` would need write access to it that isn't
+granted here. Practical implications:
+- Add teammates as collaborators directly on `fork`, not `origin`.
+- Keep pushing to `fork main` — that's what ships.
+- A PR from `fork` → `origin` is optional, for the upstream owner's
+  visibility/archive only — it is **not** part of the ongoing workflow, and
+  nothing downstream depends on it landing.
+
 ### Update — 2026-07-30 Meal slots (time/place) generalized off the UKC hardcode
 
 `slots` (the 4 dinner/lunch rows every join/matching/chat feature hangs off of)
