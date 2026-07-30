@@ -46,6 +46,7 @@ type TableMember = {
 type TableCard = {
   groupId: string;
   tableName: string;
+  rationale: string;
   starterQuestion: string;
   slot: Slot;
   members: TableMember[];
@@ -87,18 +88,6 @@ export default async function HomePage() {
     myGroups
       .filter((g) => ms(g.slot!.starts_at) >= now - 3 * HOUR)
       .sort((a, b) => ms(a.slot!.starts_at) - ms(b.slot!.starts_at))[0] ?? null;
-
-  const memberNames: string[] = [];
-  if (nextGroup) {
-    const { data: memberRows } = await supabase
-      .from("group_members")
-      .select("profile:profiles(name)")
-      .eq("group_id", nextGroup.id);
-    for (const r of memberRows ?? []) {
-      const p = one<{ name: string }>((r as any).profile);
-      if (p) memberNames.push(firstName(p.name));
-    }
-  }
 
   const { data: signupRows } = await supabase
     .from("signups")
@@ -179,6 +168,7 @@ export default async function HomePage() {
       .map((g) => ({
         groupId: g.id,
         tableName: g.name,
+        rationale: g.rationale,
         starterQuestion: g.starter_question,
         slot: g.slot!,
         members: membersByGroup.get(g.id) ?? [],
@@ -196,13 +186,9 @@ export default async function HomePage() {
       </header>
 
       {dayOf && nextGroup ? (
-        <DayOf group={nextGroup} names={memberNames} timeFmt={timeFmt} />
+        <DayOf group={nextGroup} timeFmt={timeFmt} />
       ) : nextGroup ? (
-        <Revealed
-          group={nextGroup}
-          names={memberNames}
-          timezone={conference?.timezone ?? "America/New_York"}
-        />
+        <Upcoming group={nextGroup} timezone={conference?.timezone ?? "America/New_York"} />
       ) : nextSignup ? (
         <JoinedWaiting slot={nextSignup} count={waitingCount} timeFmt={timeFmt} />
       ) : (
@@ -213,6 +199,7 @@ export default async function HomePage() {
 
       <GroupmatesSection
         tables={tables}
+        nextGroupId={nextGroup?.id ?? null}
         myInterests={myInterests}
         timezone={conference?.timezone ?? "America/New_York"}
       />
@@ -307,10 +294,12 @@ function initials(name: string) {
 // only actually been run for one of those slots so far, not a bug.
 function GroupmatesSection({
   tables,
+  nextGroupId,
   myInterests,
   timezone,
 }: {
   tables: TableCard[];
+  nextGroupId: string | null;
   myInterests: Set<string>;
   timezone: string;
 }) {
@@ -334,6 +323,7 @@ function GroupmatesSection({
           <div key={t.groupId} className="table-card">
             <div className="table-card__head">
               <div style={{ minWidth: 0 }}>
+                {t.groupId === nextGroupId && <div className="table-card__next">Next up</div>}
                 <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{t.tableName}</div>
                 <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 2 }}>
                   {t.slot.title} · {dfmt.format(new Date(t.slot.starts_at))} ·{" "}
@@ -343,6 +333,11 @@ function GroupmatesSection({
                 {t.starterQuestion && (
                   <div style={{ fontSize: 13, color: "var(--accent)", marginTop: 6, lineHeight: 1.4 }}>
                     💬 {t.starterQuestion}
+                  </div>
+                )}
+                {t.rationale && (
+                  <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 6, lineHeight: 1.4 }}>
+                    {t.rationale}
                   </div>
                 )}
               </div>
@@ -494,15 +489,10 @@ function JoinedWaiting({
   );
 }
 
-function Revealed({
-  group,
-  names,
-  timezone,
-}: {
-  group: Group;
-  names: string[];
-  timezone: string;
-}) {
+// A one-line pointer at the soonest table, not a second copy of it — the
+// name/time/starter question/who's-at-it all already live in the matching
+// table card in "Your tables" below. This just says which one is next.
+function Upcoming({ group, timezone }: { group: Group; timezone: string }) {
   const dtf = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -517,49 +507,23 @@ function Revealed({
         .join(" · ")
     : null;
   return (
-    <div>
-      <div className="eyebrow">Your table is set</div>
-      <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 10, lineHeight: 1 }}>
-        {group.name}
-      </h1>
-      {when && <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 10 }}>{when}</p>}
-      {names.length > 0 && (
-        <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 8 }}>{names.join(", ")}</p>
-      )}
-      {group.starter_question && (
-        <p style={{ fontSize: 14, color: "var(--ink)", marginTop: 6, lineHeight: 1.4, maxWidth: "42ch" }}>
-          💬 {group.starter_question}
-        </p>
-      )}
-      {group.rationale && (
-        <p
-          style={{
-            fontSize: 14,
-            color: "var(--accent)",
-            marginTop: 12,
-            lineHeight: 1.5,
-            maxWidth: "42ch",
-          }}
-        >
-          {group.rationale}
-        </p>
-      )}
-      <Link href={`/groups/${group.id}`} className="cta-line">
-        Meet your table <span aria-hidden>▸</span>
-      </Link>
-    </div>
+    <Link href={`/groups/${group.id}`} className="upcoming-strip">
+      <div style={{ minWidth: 0 }}>
+        <div className="eyebrow">Upcoming</div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: "var(--ink)", marginTop: 4 }}>
+          {group.name}
+          {when && <span style={{ fontWeight: 500, color: "var(--ink-2)" }}> · {when}</span>}
+        </div>
+      </div>
+      <span aria-hidden style={{ flexShrink: 0, color: "var(--accent)", fontWeight: 700 }}>▸</span>
+    </Link>
   );
 }
 
-function DayOf({
-  group,
-  names,
-  timeFmt,
-}: {
-  group: Group;
-  names: string[];
-  timeFmt: Intl.DateTimeFormat;
-}) {
+// Same "just say what's next" job as Upcoming, but the day-of state earns a
+// bigger, harder-to-miss time — everything else (starter question, who's at
+// the table, why) still lives in the table card below, not repeated here.
+function DayOf({ group, timeFmt }: { group: Group; timeFmt: Intl.DateTimeFormat }) {
   const meet = group.meet_time ?? group.slot?.starts_at ?? null;
   return (
     <div>
@@ -567,20 +531,7 @@ function DayOf({
       <h1 style={{ fontSize: 48, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 10, lineHeight: 1 }}>
         {meet ? timeFmt.format(new Date(meet)) : "Soon"}
       </h1>
-      {group.starter_question && (
-        <p style={{ fontSize: 16, color: "var(--ink)", marginTop: 8, fontWeight: 600, lineHeight: 1.4 }}>
-          💬 {group.starter_question}
-        </p>
-      )}
-      <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 10 }}>
-        {group.name}
-        {names.length ? ` · ${names.join(", ")}` : ""}
-      </p>
-      {group.rationale && (
-        <p style={{ fontSize: 13, color: "var(--accent)", marginTop: 8, lineHeight: 1.5, maxWidth: "42ch" }}>
-          {group.rationale}
-        </p>
-      )}
+      <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 8 }}>{group.name}</p>
       <Link
         href={`/groups/${group.id}/chat`}
         style={{
@@ -688,6 +639,24 @@ function LinkStyles() {
         margin-bottom: 2px;
       }
       .hub-list { border-bottom: 1px solid var(--line); }
+      .upcoming-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+      .table-card__next {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        margin-bottom: 4px;
+      }
       .table-card {
         margin-top: 12px;
         padding: 14px 16px;
