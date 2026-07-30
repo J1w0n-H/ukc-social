@@ -34,6 +34,21 @@ type Group = {
   meet_time: string | null;
   slot: Slot | null;
 };
+type TableMember = {
+  id: string;
+  name: string;
+  photo_url: string | null;
+  school: string;
+  position: string;
+  interests: string[];
+};
+type TableCard = {
+  groupId: string;
+  tableName: string;
+  suggestedPlace: string;
+  slot: Slot;
+  members: TableMember[];
+};
 
 export default async function HomePage() {
   const { user, supabase } = await requireUser();
@@ -45,11 +60,12 @@ export default async function HomePage() {
 
   const { data: prof } = await supabase
     .from("profiles")
-    .select("name")
+    .select("name, interests")
     .eq("id", user.id)
     .maybeSingle();
   if (!prof) redirect("/welcome");
   const profile = { name: prof.name ?? "" };
+  const myInterests = new Set(((prof.interests as string[]) ?? []).map((i) => i.toLowerCase()));
 
   const { data: groupRows } = await supabase
     .from("group_members")
@@ -137,24 +153,36 @@ export default async function HomePage() {
 
   // 친구 tab shows only people you actually share a group with — not the full
   // directory (that's "Meet other participants", which links to /people and
-  // its full stay/interest/school filtering).
+  // its full stay/interest/school filtering). One card per table (not a
+  // flattened dedup list), so it's clear which slot each group is from —
+  // and if only one table shows up, it's because matching's only actually
+  // been run for one of your joined slots so far, not a bug.
   const groupIds = myGroups.map((g) => g.id);
-  let groupmates: { id: string; name: string; photo_url: string | null; school: string; position: string }[] = [];
+  let tables: TableCard[] = [];
   if (groupIds.length) {
     const { data: memberRows } = await supabase
       .from("group_members")
-      .select("user_id")
-      .in("group_id", groupIds)
-      .neq("user_id", user.id);
-    const peerIds = [...new Set((memberRows ?? []).map((r) => r.user_id as string))];
-    if (peerIds.length) {
-      const { data: peers } = await supabase
-        .from("directory_profiles")
-        .select("id, name, photo_url, school, position")
-        .in("id", peerIds)
-        .order("name");
-      groupmates = peers ?? [];
+      .select(
+        "group_id, profile:directory_profiles(id, name, photo_url, school, position, interests)",
+      )
+      .in("group_id", groupIds);
+    const membersByGroup = new Map<string, TableMember[]>();
+    for (const r of (memberRows ?? []) as { group_id: string; profile: TableMember | TableMember[] | null }[]) {
+      const p = one<TableMember>(r.profile);
+      if (!p || p.id === user.id) continue; // show tablemates, not yourself
+      const list = membersByGroup.get(r.group_id) ?? [];
+      list.push(p);
+      membersByGroup.set(r.group_id, list);
     }
+    tables = myGroups
+      .map((g) => ({
+        groupId: g.id,
+        tableName: g.name,
+        suggestedPlace: g.suggested_place,
+        slot: g.slot!,
+        members: membersByGroup.get(g.id) ?? [],
+      }))
+      .sort((a, b) => ms(a.slot.starts_at) - ms(b.slot.starts_at));
   }
 
   return (
@@ -178,7 +206,11 @@ export default async function HomePage() {
 
       <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
 
-      <GroupmatesSection people={groupmates} />
+      <GroupmatesSection
+        tables={tables}
+        myInterests={myInterests}
+        timezone={conference?.timezone ?? "America/New_York"}
+      />
 
       <LinkStyles />
     </section>
@@ -262,44 +294,104 @@ function initials(name: string) {
   return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase() || "·";
 }
 
-// Only people you actually share a table/ride group with — the full,
-// filterable directory lives behind "Meet other participants" (-> /people).
+// One card per table — only people you actually share a group with. The
+// full, filterable directory lives behind "Meet other participants" (->
+// /people). Deliberately one card per group (not a flattened people list),
+// so it's obvious which slot/table each is from — and if only one card
+// shows even though you joined several dinners, that's because matching's
+// only actually been run for one of those slots so far, not a bug.
 function GroupmatesSection({
-  people,
+  tables,
+  myInterests,
+  timezone,
 }: {
-  people: { id: string; name: string; photo_url: string | null; school: string; position: string }[];
+  tables: TableCard[];
+  myInterests: Set<string>;
+  timezone: string;
 }) {
+  const fmt = fmtTime(timezone);
+  const dfmt = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: timezone,
+  });
+
   return (
     <div style={{ marginTop: 32 }}>
-      <div className="hub-head">People you&apos;ve matched with</div>
-      {people.length === 0 ? (
+      <div className="hub-head">Your tables</div>
+      {tables.length === 0 ? (
         <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 8 }}>
-          No one yet — join a dinner and get matched to see people here.
+          No one yet — join a dinner and get matched to see your tablemates here.
         </p>
       ) : (
-        <div style={{ marginTop: 8 }}>
-          {people.map((p) => (
-            <div key={p.id} className="mate-row">
-              <div
-                aria-hidden
-                className="mate-avatar"
-                style={
-                  p.photo_url
-                    ? { background: `center/cover no-repeat url("${p.photo_url}")` }
-                    : undefined
-                }
-              >
-                {!p.photo_url && initials(p.name)}
-              </div>
+        tables.map((t) => (
+          <div key={t.groupId} className="table-card">
+            <div className="table-card__head">
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{p.name}</div>
-                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
-                  {[p.school, p.position].filter(Boolean).join(" · ") || "—"}
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{t.tableName}</div>
+                <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 2 }}>
+                  {t.slot.title} · {dfmt.format(new Date(t.slot.starts_at))} ·{" "}
+                  {fmt.format(new Date(t.slot.starts_at))}
+                  {t.slot.area ? ` · ${t.slot.area}` : ""}
                 </div>
+                {t.suggestedPlace && (
+                  <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 2 }}>
+                    📍 {t.suggestedPlace}
+                  </div>
+                )}
               </div>
+              <Link href={`/groups/${t.groupId}/chat`} className="table-card__chat">
+                Chat
+              </Link>
             </div>
-          ))}
-        </div>
+
+            {t.members.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 10 }}>
+                Just you so far — more may join before tables lock in.
+              </p>
+            ) : (
+              t.members.map((p) => {
+                const shared = p.interests.filter((i) => myInterests.has(i.toLowerCase()));
+                return (
+                  <div key={p.id} className="mate-row">
+                    <div
+                      aria-hidden
+                      className="mate-avatar"
+                      style={
+                        p.photo_url
+                          ? { background: `center/cover no-repeat url("${p.photo_url}")` }
+                          : undefined
+                      }
+                    >
+                      {!p.photo_url && initials(p.name)}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{p.name}</div>
+                      <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
+                        {[p.school, p.position].filter(Boolean).join(" · ") || "—"}
+                      </div>
+                      {shared.length > 0 ? (
+                        <div style={{ fontSize: 13, marginTop: 3 }}>
+                          <span style={{ color: "var(--ink-3)" }}>you both like </span>
+                          <span style={{ color: "var(--accent)", fontWeight: 600 }}>
+                            {shared.join(", ")}
+                          </span>
+                        </div>
+                      ) : (
+                        p.interests.length > 0 && (
+                          <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 3 }}>
+                            into {p.interests.join(", ")}
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ))
       )}
     </div>
   );
@@ -549,14 +641,38 @@ function LinkStyles() {
         margin-bottom: 2px;
       }
       .hub-list { border-bottom: 1px solid var(--line); }
+      .table-card {
+        margin-top: 12px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+      .table-card + .table-card { margin-top: 12px; }
+      .table-card__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .table-card__chat {
+        flex-shrink: 0;
+        min-height: 32px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+      }
       .mate-row {
         display: flex;
         align-items: center;
         gap: 12px;
         padding: 10px 0;
-        border-bottom: 1px solid var(--line);
+        border-top: 1px solid var(--line);
+        margin-top: 10px;
       }
-      .mate-row:last-child { border-bottom: none; }
       .mate-avatar {
         flex-shrink: 0;
         width: 40px;
