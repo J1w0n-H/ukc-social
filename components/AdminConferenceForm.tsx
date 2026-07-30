@@ -23,6 +23,7 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
     airport_code: conference?.airport_code ?? "",
     auto_matching_enabled: conference?.auto_matching_enabled ?? false,
     matching_interval_minutes: conference?.matching_interval_minutes ?? 360,
+    announcement: conference?.announcement ?? "",
   });
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
         airport_code: form.airport_code.trim(),
         auto_matching_enabled: form.auto_matching_enabled,
         matching_interval_minutes: Number(form.matching_interval_minutes),
+        announcement: form.announcement.trim(),
       });
       setResult(r.ok ? "Saved." : `error: ${r.error}`);
     });
@@ -127,6 +129,17 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
           />
         </Field>
       </div>
+
+      <Field label="Announcement (홈 tab — blank shows a default welcome message)">
+        <textarea
+          className="admin-input"
+          rows={3}
+          style={{ resize: "vertical", fontFamily: "inherit" }}
+          value={form.announcement}
+          onChange={(e) => patch({ announcement: e.target.value })}
+          placeholder="e.g. Registration for the Gala Dinner closes Friday at noon."
+        />
+      </Field>
 
       <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8 }}>
         <input

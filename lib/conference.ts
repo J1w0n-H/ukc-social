@@ -12,10 +12,11 @@ export type Conference = {
   auto_matching_enabled: boolean;
   matching_interval_minutes: number;
   last_auto_match_at: string | null;
+  announcement: string | null;
 };
 
 const COLUMNS =
-  "id, name, location, starts_at, ends_at, timezone, utc_offset, airport_code, auto_matching_enabled, matching_interval_minutes, last_auto_match_at";
+  "id, name, location, starts_at, ends_at, timezone, utc_offset, airport_code, auto_matching_enabled, matching_interval_minutes, last_auto_match_at, announcement";
 
 // One deployment/fork = one conference in practice, so this is the most
 // recently registered row rather than a hard singleton constraint — lets

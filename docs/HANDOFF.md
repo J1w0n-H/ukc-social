@@ -1,6 +1,47 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-30 (New 홈 tab added — placeholder for announcements + schedule)_
+_Last updated: 2026-07-30 (홈 tab: admin-editable announcement + real schedule, steps 2-4 of 4)_
+
+### Update — 2026-07-30 홈 tab steps 2-4: admin inputs + the real UKC schedule
+
+Finishes the plan from the placeholder commit: (2) admin can now enter an
+announcement and schedule items, (3) 홈 renders them for real, (4) the
+actual UKC 2026 schedule (Aug 4-8) was handed off and seeded.
+
+- **Migration `0016_schedule_announcement.sql`**: adds `conferences.announcement`
+  (nullable — blank means "no announcement," 홈 falls back to a welcome
+  message) and a new `schedule_items` table (flat rows; several rows sharing
+  one starts_at/ends_at are parallel tracks, e.g. three sessions running at
+  once). ⚠️ **This migration alters the `conferences` table, so it can only
+  be applied after `0012` is** — see "Remaining Human TODOs" below, this
+  joins that same still-unapplied backlog.
+- **`lib/schedule.ts`**: `groupScheduleByDay()` — pure grouping/sorting only
+  (days → time slots → parallel items); display formatting stays in the
+  caller, same split as `lib/slots.ts`. 6 new unit tests
+  (`lib/schedule.test.ts`), including a timezone-boundary regression case.
+- **`app/actions/schedule.ts`**: `upsertScheduleItem`/`deleteScheduleItem`,
+  admin-gated, service-role writes — same pattern as every other admin
+  action. `app/actions/conference.ts`'s `ConferenceInput` gained
+  `announcement`.
+- **`components/AdminScheduleForm.tsx`** (new) + `AdminConferenceForm.tsx`
+  (added an Announcement textarea): embedded in `/admin` below the
+  conference form. Schedule form lists existing items grouped by day with
+  delete, plus an add-one-item form — fine for one-off future edits, but the
+  30+ real UKC rows were seeded directly (see below), not hand-typed.
+- **`app/(tabs)/board/page.tsx`**: no longer a static placeholder — reads
+  `conference.announcement` (or the welcome default) and renders the real
+  schedule via `groupScheduleByDay`, agenda-style (day header, then a time +
+  stacked parallel-session list per slot).
+- **`scripts/seed-schedule.ts`** (new, dev/one-time-import convenience,
+  same `npx -y tsx --env-file=.env.local scripts/<f>.ts` pattern as
+  `seed-slots.ts`): the real UKC 2026 program, transcribed from the handed-
+  off schedule image — SEED (pre-conference, Tue-Wed), Opening/Plenary I,
+  Signature Symposiums, Distinguished Sponsor Forums, KSEA/TG/FIRE/IES
+  tracks, Gala/Networking dinners, Closing/Plenary III. Dedupes by
+  `(title, starts_at)` pair (not title alone — "Breakfast"/"Lunch"
+  legitimately repeat across days), so reruns are safe. **Not yet run
+  against the live DB** — needs migration `0016` (and its `0012`
+  prerequisite) applied first.
 
 ### Update — 2026-07-30 New 홈 tab (step 1 of 4: placeholder)
 
@@ -429,32 +470,37 @@ of this file. Items resolved since the last pass (migration `0008`, the original
 Vercel deploy, rides/polish) have been removed rather than left stale; see the dated
 Updates above for what actually closed them out._
 
-1. **Apply migrations `0011`–`0014` to the live Supabase project**
+1. **Apply migrations `0011`–`0014` and `0016` to the live Supabase project**
    (`kxvvnvzfdawsnftgjabl`) — `0011_ride_join.sql`, `0012_conference.sql`,
-   `0013_message_reads.sql`, `0014_notifications.sql`. `0015` was applied on
-   2026-07-30 (confirmed live via a direct column check), the other four are still
-   outstanding (also confirmed live: `ride_members`/`conferences`/`message_reads`/
-   `notifications` all still error or 404 against the live schema). Same manual
-   SQL-editor step as every prior migration. Until these are applied: ride "Share"
-   isn't real, `/admin` can't register a conference, `/chat`'s unread badges stay at
-   0, and no notifications get written anywhere.
-2. **Register a conference at `/admin`** (sign in as `ADMIN_EMAIL`) — name, location,
-   start/end dates, timezone, airport code. Until one is registered, every page shows
-   the generic "Icebreaker" fallback instead of the real event name/dates, and
-   onboarding's Step 1 has nothing to show.
-3. **Set `CRON_SECRET`** in Vercel's env vars (and local `.env.local`) to match what
+   `0013_message_reads.sql`, `0014_notifications.sql`,
+   `0016_schedule_announcement.sql`. `0015` was applied on 2026-07-30 (confirmed
+   live via a direct column check), the rest are still outstanding (also confirmed
+   live: `ride_members`/`conferences`/`message_reads`/`notifications` all still
+   error or 404 against the live schema). Same manual SQL-editor step as every
+   prior migration. **`0016` alters the `conferences` table, so `0012` must be
+   applied first, in order.** Until these are applied: ride "Share" isn't real,
+   `/admin` can't register a conference, `/chat`'s unread badges stay at 0, no
+   notifications get written anywhere, and 홈's announcement/schedule can't be set.
+2. **Run `scripts/seed-schedule.ts`** once `0016` is live — seeds the real UKC
+   2026 schedule (see the dated update above). Safe to rerun (dedupes by
+   title+starts_at).
+3. **Register a conference at `/admin`** (sign in as `ADMIN_EMAIL`) — name, location,
+   start/end dates, timezone, airport code, and now an announcement too. Until one is
+   registered, every page shows the generic "Icebreaker" fallback instead of the real
+   event name/dates, and onboarding's Step 1 has nothing to show.
+4. **Set `CRON_SECRET`** in Vercel's env vars (and local `.env.local`) to match what
    Vercel Cron sends as a bearer token to `/api/cron/auto-match`. ⚠️ **Auto-matching
-   is deployed but functionally inert** without both this *and* step 2's conference
+   is deployed but functionally inert** without both this *and* step 3's conference
    registered with `auto_matching_enabled` turned on — don't read "the cron route
    exists" as "auto-matching is live." Separately, Vercel Hobby only fires the cron
    tick once/day regardless of the admin-configured interval (see the deploy-break
    update above) — Pro is needed for a tighter tick.
-4. **Confirm `ANTHROPIC_API_KEY` is set on the live Vercel project.** Without it,
+5. **Confirm `ANTHROPIC_API_KEY` is set on the live Vercel project.** Without it,
    matching uses the round-robin fallback (groups are correct, but the rationale is
    generic instead of the warm AI blurb, and tables get plain "Table N" names instead
    of a themed one — see "Matching pipeline correctness" above). Status as of the
    last live check (07-29, pre-migration-0012 project) was: not set.
-5. **Google OAuth** (optional) — enable in Supabase Auth providers; the login page's
+6. **Google OAuth** (optional) — enable in Supabase Auth providers; the login page's
    email+password and magic-link paths already work without it.
 
 ## Deploy to Vercel (checklist)
@@ -493,7 +539,7 @@ yet" TODO anymore — steps 1–4 don't need repeating for this project._
    without it.
 
 ## Dev helpers
-- `scripts/seed-slots.ts`, `scripts/seed-fake.ts` — `npx -y tsx --env-file=.env.local scripts/<f>.ts`
+- `scripts/seed-slots.ts`, `scripts/seed-fake.ts`, `scripts/seed-schedule.ts` — `npx -y tsx --env-file=.env.local scripts/<f>.ts`
 - `scripts/dev-magiclink.mjs <email>` — prints a local login link for testing (no inbox needed).
 
 ## Known nits (not blockers)

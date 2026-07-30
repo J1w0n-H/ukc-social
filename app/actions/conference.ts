@@ -17,6 +17,7 @@ export type ConferenceInput = {
   airport_code: string;
   auto_matching_enabled: boolean;
   matching_interval_minutes: number;
+  announcement: string;
 };
 
 // Registers (or edits, if `id` is passed) the deployment's conference. One

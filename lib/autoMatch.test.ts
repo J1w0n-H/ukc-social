@@ -17,6 +17,7 @@ const baseConference = (overrides: Partial<Conference> = {}): Conference => ({
   auto_matching_enabled: true,
   matching_interval_minutes: 360,
   last_auto_match_at: null,
+  announcement: null,
   ...overrides,
 });
 

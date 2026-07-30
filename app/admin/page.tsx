@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
 import AdminSlotRow from "@/components/AdminSlotRow";
 import AdminConferenceForm from "@/components/AdminConferenceForm";
+import AdminScheduleForm from "@/components/AdminScheduleForm";
 
 export default async function AdminPage() {
   const { user, supabase } = await requireUser();
@@ -24,6 +25,11 @@ export default async function AdminPage() {
   });
   const { data: signups } = await supabase.from("signups").select("slot_id");
 
+  const { data: scheduleItems } = await supabase
+    .from("schedule_items")
+    .select("id, starts_at, ends_at, title, sort_order")
+    .order("starts_at");
+
   const counts = new Map<string, number>();
   for (const s of signups ?? [])
     counts.set(s.slot_id as string, (counts.get(s.slot_id as string) ?? 0) + 1);
@@ -36,6 +42,12 @@ export default async function AdminPage() {
       </p>
 
       <AdminConferenceForm conference={conference} />
+
+      <AdminScheduleForm
+        items={(scheduleItems ?? []) as { id: string; starts_at: string; ends_at: string; title: string; sort_order: number }[]}
+        timezone={conference?.timezone ?? "America/New_York"}
+        utcOffset={conference?.utc_offset ?? "-04:00"}
+      />
 
       <div style={{ borderTop: "1px solid var(--line)" }}>
         {(slots ?? []).map((slot) => (
