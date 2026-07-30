@@ -1,6 +1,28 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-30 (Meal slots now auto-derived from the conference's dates)_
+_Last updated: 2026-07-30 (New 홈 tab added — placeholder for announcements + schedule)_
+
+### Update — 2026-07-30 New 홈 tab (step 1 of 4: placeholder)
+
+First step of a 4-step plan: (1) placeholder 홈 tab [this], (2) admin inputs
+for announcements + schedule (empty announcement defaults to a welcome
+message), (3) wire the admin-entered schedule onto this tab for real, (4)
+the actual UKC schedule gets entered once it exists. Steps 2-4 not started.
+
+- Tab bar is now 5 tabs, not 4: **홈** (new, leftmost) → 친구 → 채팅 → 매칭 →
+  마이페이지. 홈 is the new front page (announcements/schedule); 친구 (still
+  routed at `/home`) stays what it's always been — your tables/groupmates.
+- New route `app/(tabs)/board/page.tsx` (route is `/board`, not `/home` —
+  that path was already taken by 친구). Static placeholder only: an
+  "Announcement" card that already implements the eventual default (no real
+  announcements source exists yet, so it always shows "Welcome to
+  {conference name}!"), and an empty-state "Schedule" card. No new tables/
+  migrations yet — that's step 2.
+- `app/page.tsx`'s root redirect changed from `/home` to `/board` — 홈 is now
+  the actual landing page after login, not 친구. Called out here since it's
+  a real behavior change (everyone's first screen after logging in) made
+  without being asked in so many words, on the reasoning that a tab
+  literally labeled "홈" should be the landing page.
 
 ## Repo & deploy setup — read this before touching git remotes
 

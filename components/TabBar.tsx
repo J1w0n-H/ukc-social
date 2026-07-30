@@ -5,11 +5,18 @@ import { usePathname } from "next/navigation";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
 
-// KakaoTalk-style IA: grouped by relationship (친구/채팅/매칭/마이페이지), not by
-// feature (Home/Meals/Rides/People/Me). Icon-only — no .tabbar__label anymore.
+// KakaoTalk-style IA: grouped by relationship (홈/친구/채팅/매칭/마이페이지), not by
+// feature (Meals/Rides/People/Me). Icon-only — no .tabbar__label anymore.
 // People is still reachable (Home's "Meet other participants" nudge links to it),
 // it's just no longer a top-level tab.
 const tabs: Tab[] = [
+  {
+    href: "/board",
+    label: "홈",
+    icon: (
+      <path d="M4 11.5 12 4l8 7.5M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9" />
+    ),
+  },
   {
     href: "/home",
     label: "친구",
