@@ -14,6 +14,14 @@ export default async function AdminPage() {
     .from("slots")
     .select("id, title, starts_at")
     .order("starts_at");
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: conference?.timezone ?? "America/New_York",
+  });
   const { data: signups } = await supabase.from("signups").select("slot_id");
 
   const counts = new Map<string, number>();
@@ -35,6 +43,7 @@ export default async function AdminPage() {
             key={slot.id as string}
             slotId={slot.id as string}
             title={slot.title as string}
+            when={dtf.format(new Date(slot.starts_at as string))}
             count={counts.get(slot.id as string) ?? 0}
           />
         ))}

@@ -63,6 +63,8 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
         {conference
           ? "Update details, or turn on periodic auto-matching."
           : "Fill this in once per fork/deployment — it drives copy, timing, and matching."}
+        {" "}Saving also fills in a dinner slot for each night (and a farewell
+        lunch on the last day) from the dates below — no separate slot setup.
       </p>
 
       <Field label="Name">

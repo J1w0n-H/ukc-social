@@ -1,6 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Times are America/New_York (EDT = UTC-4), written as explicit UTC ISO strings.
+// Dev/local convenience only — in production, slots are derived automatically
+// from the registered conference's own dates (lib/slots.ts's deriveSlots,
+// wired into app/actions/conference.ts's upsertConference). This script just
+// seeds the same real UKC 2026 dates directly, without going through /admin,
+// for quick local setup. Times are America/New_York (EDT = UTC-4), written as
+// explicit UTC ISO strings.
 const SLOTS = [
   {
     title: "Day 1 Dinner",

@@ -2,6 +2,7 @@
 
 import { createServerSupabase } from "@/lib/supabase/server";
 import { serviceClient } from "@/lib/supabase/service";
+import { deriveSlots } from "@/lib/slots";
 
 type Result = { ok: boolean; error?: string };
 
@@ -41,5 +42,20 @@ export async function upsertConference(fields: ConferenceInput): Promise<Result>
     ? await svc.from("conferences").update(rest).eq("id", id)
     : await svc.from("conferences").insert(rest);
   if (error) return { ok: false, error: error.message };
+
+  // Slots (lunch/dinner, one per day) come from the conference's own dates —
+  // no separate admin form to hand-enter them. Only fills in titles that
+  // don't exist yet: if the conference's dates change later, existing slots
+  // (which may already have real signups/groups) are left alone rather than
+  // silently rewritten or deleted.
+  const drafts = deriveSlots(rest);
+  const { data: existing } = await svc.from("slots").select("title");
+  const have = new Set((existing ?? []).map((s) => s.title as string));
+  const missing = drafts.filter((s) => !have.has(s.title));
+  if (missing.length) {
+    const { error: slotErr } = await svc.from("slots").insert(missing);
+    if (slotErr) return { ok: false, error: slotErr.message };
+  }
+
   return { ok: true };
 }

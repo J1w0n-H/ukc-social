@@ -6,10 +6,12 @@ import { runMatching } from "@/app/actions/admin";
 export default function AdminSlotRow({
   slotId,
   title,
+  when,
   count,
 }: {
   slotId: string;
   title: string;
+  when: string;
   count: number;
 }) {
   const [pending, startTransition] = useTransition();
@@ -42,7 +44,7 @@ export default function AdminSlotRow({
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 600 }}>{title}</div>
         <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
-          {count} signup{count === 1 ? "" : "s"}
+          {when} · {count} signup{count === 1 ? "" : "s"}
           {result && (
             <span style={{ color: "var(--ink-2)" }}> · {result}</span>
           )}

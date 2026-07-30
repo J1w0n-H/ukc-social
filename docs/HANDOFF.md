@@ -1,6 +1,38 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-30 (LLM "suggested place" replaced with an icebreaker question)_
+_Last updated: 2026-07-30 (Meal slots now auto-derived from the conference's dates)_
+
+### Update — 2026-07-30 Meal slots (time/place) generalized off the UKC hardcode
+
+`slots` (the 4 dinner/lunch rows every join/matching/chat feature hangs off of)
+were still 100% hardcoded to real UKC 2026 dates and a real venue name
+("ChampionsGate"), seeded once by hand via `scripts/seed-slots.ts` — a leftover
+from before the conference-generalization work, and the actual answer to "why
+does this time/place keep showing, how is it set?" when asked about it live.
+
+Rather than building a second admin form to hand-enter slot times (the first
+instinct), the dates the admin already enters for the conference are enough to
+derive them:
+
+- **`lib/slots.ts`** (new): `deriveSlots(conference)` — one dinner every night
+  of the conference except the last, plus a farewell lunch on the last day (a
+  single-day conference just gets one dinner). No area/venue is filled in
+  (left blank) — same reasoning that already dropped the LLM's "suggested
+  place": don't invent a location the app has no real data behind. 7pm dinner
+  / 12:30pm lunch, join deadlines 2h before, computed in the conference's own
+  timezone + utc_offset. 8 new unit tests (`lib/slots.test.ts`), including a
+  non-UTC-offset (Pacific) case and the single/two-day edge cases.
+- **`app/actions/conference.ts`**'s `upsertConference()`: after saving the
+  conference, calls `deriveSlots` and inserts any titles ("Day 1 Dinner", …,
+  "Farewell Lunch") that don't already exist. Deliberately additive-only — if
+  the admin later shortens/moves the conference dates, existing slots (which
+  may already have real signups/groups on them) are left alone rather than
+  rewritten or deleted out from under real data.
+- `/admin` now shows each slot's actual date/time next to its title
+  (`AdminSlotRow`), not just a bare name — worth seeing now that the dates
+  aren't fixed at a glance from the code anymore.
+- `scripts/seed-slots.ts` kept as a dev/local convenience (comment updated to
+  say so) — no longer the production source of truth.
 
 ### Update — 2026-07-30 Dropped the LLM-invented "suggested place," added an icebreaker question
 
