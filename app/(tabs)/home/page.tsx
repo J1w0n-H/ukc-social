@@ -32,7 +32,6 @@ type Group = {
   name: string;
   rationale: string;
   starter_question: string;
-  meet_time: string | null;
   slot: Slot | null;
 };
 type TableMember = {
@@ -72,7 +71,7 @@ export default async function HomePage() {
   const { data: groupRows } = await supabase
     .from("group_members")
     .select(
-      "group:groups(id, name, rationale, starter_question, meet_time, slot:slots(id, title, starts_at, area, join_deadline))",
+      "group:groups(id, name, rationale, starter_question, slot:slots(id, title, starts_at, area, join_deadline))",
     )
     .eq("user_id", user.id);
 
@@ -185,24 +184,34 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {dayOf && nextGroup ? (
-        <DayOf group={nextGroup} timeFmt={timeFmt} />
-      ) : nextGroup ? (
-        <Upcoming group={nextGroup} timezone={conference?.timezone ?? "America/New_York"} />
-      ) : nextSignup ? (
-        <JoinedWaiting slot={nextSignup} count={waitingCount} timeFmt={timeFmt} />
+      {nextGroup ? (
+        <>
+          <GroupmatesSection
+            tables={tables}
+            nextGroupId={nextGroup.id}
+            dayOf={!!dayOf}
+            myInterests={myInterests}
+            timezone={conference?.timezone ?? "America/New_York"}
+          />
+          <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
+        </>
       ) : (
-        <Fresh name={profile.name} conferenceName={conference?.name} />
+        <>
+          {nextSignup ? (
+            <JoinedWaiting slot={nextSignup} count={waitingCount} timeFmt={timeFmt} />
+          ) : (
+            <Fresh name={profile.name} conferenceName={conference?.name} />
+          )}
+          <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
+          <GroupmatesSection
+            tables={tables}
+            nextGroupId={null}
+            dayOf={false}
+            myInterests={myInterests}
+            timezone={conference?.timezone ?? "America/New_York"}
+          />
+        </>
       )}
-
-      <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
-
-      <GroupmatesSection
-        tables={tables}
-        nextGroupId={nextGroup?.id ?? null}
-        myInterests={myInterests}
-        timezone={conference?.timezone ?? "America/New_York"}
-      />
 
       <LinkStyles />
     </section>
@@ -295,11 +304,13 @@ function initials(name: string) {
 function GroupmatesSection({
   tables,
   nextGroupId,
+  dayOf,
   myInterests,
   timezone,
 }: {
   tables: TableCard[];
   nextGroupId: string | null;
+  dayOf: boolean;
   myInterests: Set<string>;
   timezone: string;
 }) {
@@ -323,7 +334,9 @@ function GroupmatesSection({
           <div key={t.groupId} className="table-card">
             <div className="table-card__head">
               <div style={{ minWidth: 0 }}>
-                {t.groupId === nextGroupId && <div className="table-card__next">Next up</div>}
+                {t.groupId === nextGroupId && (
+                  <div className="table-card__next">{dayOf ? "Tonight" : "Next up"}</div>
+                )}
                 <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{t.tableName}</div>
                 <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 2 }}>
                   {t.slot.title} · {dfmt.format(new Date(t.slot.starts_at))} ·{" "}
@@ -489,69 +502,6 @@ function JoinedWaiting({
   );
 }
 
-// A one-line pointer at the soonest table, not a second copy of it — the
-// name/time/starter question/who's-at-it all already live in the matching
-// table card in "Your tables" below. This just says which one is next.
-function Upcoming({ group, timezone }: { group: Group; timezone: string }) {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: timezone,
-  });
-  const when = group.slot
-    ? [dtf.format(new Date(group.meet_time ?? group.slot.starts_at)), group.slot.area]
-        .filter(Boolean)
-        .join(" · ")
-    : null;
-  return (
-    <Link href={`/groups/${group.id}`} className="upcoming-strip">
-      <div style={{ minWidth: 0 }}>
-        <div className="eyebrow">Upcoming</div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: "var(--ink)", marginTop: 4 }}>
-          {group.name}
-          {when && <span style={{ fontWeight: 500, color: "var(--ink-2)" }}> · {when}</span>}
-        </div>
-      </div>
-      <span aria-hidden style={{ flexShrink: 0, color: "var(--accent)", fontWeight: 700 }}>▸</span>
-    </Link>
-  );
-}
-
-// Same "just say what's next" job as Upcoming, but the day-of state earns a
-// bigger, harder-to-miss time — everything else (starter question, who's at
-// the table, why) still lives in the table card below, not repeated here.
-function DayOf({ group, timeFmt }: { group: Group; timeFmt: Intl.DateTimeFormat }) {
-  const meet = group.meet_time ?? group.slot?.starts_at ?? null;
-  return (
-    <div>
-      <div className="eyebrow">Tonight</div>
-      <h1 style={{ fontSize: 48, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 10, lineHeight: 1 }}>
-        {meet ? timeFmt.format(new Date(meet)) : "Soon"}
-      </h1>
-      <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 8 }}>{group.name}</p>
-      <Link
-        href={`/groups/${group.id}/chat`}
-        style={{
-          display: "block",
-          textAlign: "center",
-          marginTop: 24,
-          padding: "15px",
-          borderRadius: 999,
-          fontSize: 16,
-          fontWeight: 700,
-          border: "1px solid var(--accent)",
-          color: "var(--accent)",
-        }}
-      >
-        Open chat ▸
-      </Link>
-    </div>
-  );
-}
-
 // Home for an anonymous guest: no personal data, just what signing up unlocks.
 function GuestHomeSection({ conferenceName }: { conferenceName?: string }) {
   return (
@@ -639,15 +589,6 @@ function LinkStyles() {
         margin-bottom: 2px;
       }
       .hub-list { border-bottom: 1px solid var(--line); }
-      .upcoming-strip {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 14px 16px;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-      }
       .table-card__next {
         display: inline-block;
         font-size: 11px;
