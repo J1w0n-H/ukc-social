@@ -11,8 +11,12 @@ coffee-shop-sounding name suggested for a dinner slot, previously reproduced). W
 to actually eat is now left to the table to sort out themselves in chat.
 
 - **Migration `0015_group_starter_question.sql`**: `groups.suggested_place` renamed to
-  `starter_question`. **Not yet applied to the live Supabase project** — joins
-  `0011`–`0014` in the "Remaining Human TODOs" backlog below.
+  `starter_question`. **Applied to the live Supabase project on 2026-07-30**, after
+  the gap between it and the already-deployed code caused a real bug: every
+  `/groups/[id]` and `/groups/[id]/chat` load was erroring on the now-missing column
+  and silently 404ing (`if (!group) notFound()` fired on the query error, not just a
+  genuine missing group). Confirmed fixed by querying the live DB directly —
+  `starter_question` now resolves, `suggested_place` no longer exists.
 - `lib/matching.ts`: `MatchGroup.starterQuestion` replaces `suggestedPlace`; the
   now-unused `location` param dropped from `buildMatchPrompt`/`matchSlot` (it only
   ever existed to build the "near X" phrase). Prompt now asks for "a fun icebreaker
@@ -353,14 +357,15 @@ of this file. Items resolved since the last pass (migration `0008`, the original
 Vercel deploy, rides/polish) have been removed rather than left stale; see the dated
 Updates above for what actually closed them out._
 
-1. **Apply migrations `0011`–`0015` to the live Supabase project**
+1. **Apply migrations `0011`–`0014` to the live Supabase project**
    (`kxvvnvzfdawsnftgjabl`) — `0011_ride_join.sql`, `0012_conference.sql`,
-   `0013_message_reads.sql`, `0014_notifications.sql`,
-   `0015_group_starter_question.sql`. Same manual SQL-editor step as every prior
-   migration. Until these are applied: ride "Share" isn't real, `/admin` can't
-   register a conference, `/chat`'s unread badges stay at 0, no notifications get
-   written anywhere, and reading/writing `groups.starter_question` will fail against
-   the live DB's still-named `suggested_place` column.
+   `0013_message_reads.sql`, `0014_notifications.sql`. `0015` was applied on
+   2026-07-30 (confirmed live via a direct column check), the other four are still
+   outstanding (also confirmed live: `ride_members`/`conferences`/`message_reads`/
+   `notifications` all still error or 404 against the live schema). Same manual
+   SQL-editor step as every prior migration. Until these are applied: ride "Share"
+   isn't real, `/admin` can't register a conference, `/chat`'s unread badges stay at
+   0, and no notifications get written anywhere.
 2. **Register a conference at `/admin`** (sign in as `ADMIN_EMAIL`) — name, location,
    start/end dates, timezone, airport code. Until one is registered, every page shows
    the generic "Icebreaker" fallback instead of the real event name/dates, and
