@@ -1,6 +1,42 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-29 (Fixed a live Vercel deploy break: hourly cron isn't allowed on Hobby)_
+_Last updated: 2026-07-29 (People's stay/interest/school filtering brought back onto 친구/Home)_
+
+### Update — 2026-07-29 People's filtering brought back onto 친구 (Home)
+
+Moving People off the bottom tab bar (the nav restructure below) left its stay-badge
+(early/late/same) and interest filtering reachable only via one link from Home, and
+not reachable at all from 채팅/매칭/마이페이지. Requested back explicitly.
+
+- `components/PeopleBrowser.tsx`: added a school filter (chips, same pattern as the
+  existing interest chips) — filtering previously covered stay window and interest
+  only, not school, despite school being a core directory field.
+- `app/(tabs)/people/page.tsx`: extracted `PeopleSection()` (data fetch +
+  `<PeopleBrowser>`), same shared-section pattern already used for Meals/Rides, so
+  `/people` and Home read from one implementation, not a copy.
+- `app/(tabs)/home/page.tsx`: embeds `PeopleSection` directly under "Line these up" —
+  the full stay/interest/school browsing experience is back on 친구 itself now, not
+  just linked from it.
+
+### Update — 2026-07-29 UI polish pass (user-reported rough edges)
+
+- **Kicker duplication fixed.** Every tab's small kicker label was falling back to
+  its own page title when no conference is registered — which is the live app's
+  actual current state, so every tab showed a literal duplicate header (e.g. "Me"
+  over "Me", and `/chat` hardcoded a Korean "채팅" over an English "Chat" title). All
+  kickers now fall back to "Icebreaker" instead, matching what Home already did.
+- **NotificationBell desktop position simplified.** The previous desktop placement
+  (`bottom: 84px`, guessed to sit above 마이페이지 in the rail) was never actually
+  anchored to the rail's real layout. Simplified to top-right on every breakpoint —
+  it never collides with a left-side rail regardless of width, so there's no second
+  position to keep in sync.
+- **Flight editing merged into Edit profile.** Editing arrival/departure flight times
+  was a second, always-open "My flights" section on Me with its own separate Save
+  button, disconnected from the "Edit profile" flow. Flight fields now live inside
+  the same edit form and save together with one Save button; the read view shows a
+  compact flight summary line. `components/FlightEditor.tsx` deleted. Also fixed its
+  hardcoded 2026 default flight dates — now derived from the registered conference's
+  own dates, same pattern already used in onboarding's `StepPlans`.
 
 ### Update — 2026-07-29 Vercel deployment was silently broken since the conference-gen push
 
@@ -173,26 +209,31 @@ Full visual reskin ("Icebreaker" — frost-navy + icy-cyan, Frozen-cast mock dat
 - **`/mentor` removed.** It was already unreachable from any nav. `lib/mentorMatch.ts` +
   its tests are untouched — if mentor matching gets revisited, see
   `docs/mentor-match-logic.md`'s "What building it needs" section.
-- **Logged, not built this pass** (data model is in place; enforcement isn't):
-  - `event_id` isn't read by `runMatching` or `rides.ts` — people who picked different
-    events (or "None of these") can still land in the same signups list and get seated
-    together. The event picker is cosmetic until this is wired in.
-  - `JoinSheet` doesn't check a slot's date against the signer's `stay_start`/`stay_end`
-    — someone leaving before a dinner can still join it and never show up.
-  - No two-stage matching pipeline exists: today there's no hard schedule filter at all,
-    so "interest fit should never override a schedule conflict" isn't implemented in
-    either direction yet.
-  - `matchSlot()` skips the LLM (and therefore interests) whenever a slot's headcount is
-    ≤ 6 — the common case — and calls the interest-blind `roundRobinGroups()` instead.
-  - A failed `validateAssignment` (after 2 LLM retries) re-packs the *whole* slot via
-    round-robin instead of keeping any groups that were already valid.
-  - A round-robin table can still draw a flavorful name from the bank
-    (`lib/groupName.ts`) while its rationale stays the generic "Grouped to keep tables
-    even." — name and reasoning can contradict each other.
-  - `EVENT_OFFSET`/`EVENT_AIRPORT` (`lib/rides.ts`) are hardcoded for one event/timezone,
-    now that the app has a picker implying more than one event is possible.
+- **Logged, not built this pass** (data model is in place; enforcement isn't) — **all
+  six of these were actually closed out on 2026-07-29, see "Matching pipeline
+  correctness" and "Conference generalization" above; left here, annotated, as the
+  original record of the gap rather than deleted outright:**
+  - ~~`event_id` isn't read by `runMatching` or `rides.ts`~~ — ✅ fixed:
+    `lib/scheduleFilter.ts`'s `isEligibleForSlot()` now hard-filters on it inside
+    `matchOneSlot`.
+  - ~~`JoinSheet` doesn't check a slot's date against the signer's stay window~~ —
+    ✅ fixed: `joinSlot()` returns `schedule_conflict`, `JoinSheet` shows a warning
+    and retries with `confirmed: true`.
+  - ~~No two-stage matching pipeline exists~~ — ✅ fixed: the schedule filter runs
+    first and hard-excludes anyone ineligible; interest scoring only ever sees the
+    eligible subset.
+  - ~~`matchSlot()` skips the LLM whenever headcount ≤ 6~~ — ✅ fixed: that shortcut
+    is gone; round-robin is now genuinely reserved for failure.
+  - ~~A failed `validateAssignment` re-packs the whole slot~~ — ✅ fixed:
+    `repackInvalid()` keeps whatever tables were already valid.
+  - ~~A round-robin table can still draw a flavorful name while its rationale stays
+    generic~~ — ✅ fixed: only LLM-matched tables draw a themed name now.
+  - ~~`EVENT_OFFSET`/`EVENT_AIRPORT` hardcoded for one event/timezone~~ — ✅ fixed:
+    both are now `conferences` row fields (see "Conference generalization" above).
 - Migrations `0009_event_stay.sql` and `0010_hi_requests.sql` need to be applied to the
-  live Supabase project (same manual step as `0008`) before any of the above works.
+  live Supabase project (same manual step as `0008`) before any of the above works —
+  **this is still true**; see "Remaining Human TODOs" below for the current full
+  migration list.
 
 ### Update — 2026-07-28 bug review pass
 - **Security fix (apply promptly): migration `0008_profiles_contact_rls.sql`.** The
@@ -242,6 +283,13 @@ Full visual reskin ("Icebreaker" — frost-navy + icy-cyan, Frozen-cast mock dat
 
 ## Status: BUILT + VERIFIED END-TO-END on cloud Supabase ✅
 
+_Historical — this section and "Cloud DB state" below describe the **first**
+verification pass, against a cloud project (`ctkjzenmwvqgrncxinvt`) that's since been
+superseded. The live project as of 2026-07-29 is `kxvvnvzfdawsnftgjabl` (see that
+date's "verified live end-to-end" update above) — kept for the QA-bugs-found record,
+not as a current migration/DB reference. Use "Remaining Human TODOs" below for
+current state._
+
 All 12 core tasks built, and the full flow was driven and verified against the live
 cloud database (project `ctkjzenmwvqgrncxinvt`, "sunny2.0"):
 
@@ -271,41 +319,65 @@ cloud database (project `ctkjzenmwvqgrncxinvt`, "sunny2.0"):
 
 ## Remaining Human TODOs
 
-0. **Apply migration `0008_profiles_contact_rls.sql` to the live Supabase project.**
-   Security fix — see the 2026-07-28 note above. Do this before the event; real kakao/
-   linkedin/dietary/birthday data is exposed to any signed-in user until it's applied.
-1. **Anthropic API key** — add `ANTHROPIC_API_KEY=` to `.env.local`. Without it, matching
-   uses the round-robin fallback (groups are correct, but the rationale is the generic
-   "Grouped to keep tables even" instead of the warm AI blurb). This is the only feature
-   still on the fallback path.
-2. **Vercel deploy** — connect the repo, set the same env vars (URL, anon, service_role,
-   ANTHROPIC_API_KEY, ADMIN_EMAIL), deploy. Then in Supabase → Auth → URL Configuration
-   set Site URL + redirect `https://<domain>/auth/callback`.
-3. **Google OAuth** (optional) — enable in Supabase Auth providers; the login page's
-   magic-link path already works without it.
-4. **(Later) Plan 2** — rides + polish (spec §7 S5). Ride tables already migrated.
+_Rewritten 2026-07-29 — everything below is current as of the last update at the top
+of this file. Items resolved since the last pass (migration `0008`, the original
+Vercel deploy, rides/polish) have been removed rather than left stale; see the dated
+Updates above for what actually closed them out._
+
+1. **Apply migrations `0011`–`0014` to the live Supabase project**
+   (`kxvvnvzfdawsnftgjabl`) — `0011_ride_join.sql`, `0012_conference.sql`,
+   `0013_message_reads.sql`, `0014_notifications.sql`. Same manual SQL-editor step as
+   every prior migration. Until these are applied: ride "Share" isn't real, `/admin`
+   can't register a conference, `/chat`'s unread badges stay at 0, and no
+   notifications get written anywhere.
+2. **Register a conference at `/admin`** (sign in as `ADMIN_EMAIL`) — name, location,
+   start/end dates, timezone, airport code. Until one is registered, every page shows
+   the generic "Icebreaker" fallback instead of the real event name/dates, and
+   onboarding's Step 1 has nothing to show.
+3. **Set `CRON_SECRET`** in Vercel's env vars (and local `.env.local`) to match what
+   Vercel Cron sends as a bearer token to `/api/cron/auto-match`. ⚠️ **Auto-matching
+   is deployed but functionally inert** without both this *and* step 2's conference
+   registered with `auto_matching_enabled` turned on — don't read "the cron route
+   exists" as "auto-matching is live." Separately, Vercel Hobby only fires the cron
+   tick once/day regardless of the admin-configured interval (see the deploy-break
+   update above) — Pro is needed for a tighter tick.
+4. **Confirm `ANTHROPIC_API_KEY` is set on the live Vercel project.** Without it,
+   matching uses the round-robin fallback (groups are correct, but the rationale is
+   generic instead of the warm AI blurb, and tables get plain "Table N" names instead
+   of a themed one — see "Matching pipeline correctness" above). Status as of the
+   last live check (07-29, pre-migration-0012 project) was: not set.
+5. **Google OAuth** (optional) — enable in Supabase Auth providers; the login page's
+   email+password and magic-link paths already work without it.
 
 ## Deploy to Vercel (checklist)
 
-_Not done yet — this is the runbook for when we deploy. Do NOT deploy silently; confirm first._
+_Deployed as of 2026-07-29 — this repo is live on Vercel via the `fork` remote
+(`J1w0n-H/ukc-social`), auto-deploying `main` (confirmed green after the cron-schedule
+fix above). Kept below as the runbook for a fresh project/re-deploy, not a "not done
+yet" TODO anymore — steps 1–4 don't need repeating for this project._
 
 1. **Import the repo** into Vercel (framework auto-detects as Next.js).
 2. **Set env vars** in Vercel → Project → Settings → Environment Variables (Production +
    Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_EMAIL`, and optionally `ANTHROPIC_API_KEY` (AI
-   matching rationale + flight-screenshot parsing; without it both fall back to
-   deterministic/manual paths) and `GEMINI_API_KEY`. Values mirror `.env.local`.
-   `AERODATABOX_API_KEY` is dead — no page reads it anymore, skip it.
-   The service-role key is server-only — never expose it as `NEXT_PUBLIC_*`.
+   `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_EMAIL`, `CRON_SECRET` (must match the bearer
+   token Vercel Cron sends to `/api/cron/auto-match`), and optionally
+   `ANTHROPIC_API_KEY` (AI matching rationale + flight-screenshot parsing; without it
+   both fall back to deterministic/manual paths), `GEMINI_API_KEY`, and
+   `AERODATABOX_API_KEY` (live airport arrivals on Rides — `lib/flights.ts` still
+   reads this; **corrects an earlier, wrong claim in this doc that it was dead** —
+   without it, Rides falls back to the bundled Aug-4 MCO example data). Values mirror
+   `.env.local`. The service-role key is server-only — never expose it as
+   `NEXT_PUBLIC_*`.
 3. **Deploy**, note the assigned domain (e.g. `icebreaker.vercel.app`).
 4. **Point Supabase auth at the domain:** Supabase → Auth → URL Configuration →
    Site URL `https://<domain>`, and add redirect `https://<domain>/auth/callback`
    (keep `http://localhost:3000/auth/callback` for local dev). Magic links bounce to
    `/login?error=auth` if this is missing.
-5. **DB is already live** (project `kxvvnvzfdawsnftgjabl`, migrations `0001`→`0010`
-   applied, seeded with real slots + 20 Frozen-cast fake profiles — see the
-   2026-07-29 update above). If you deploy against a fresh Supabase project instead,
-   apply all ten migrations in order first, then re-seed.
+5. **DB is live** (project `kxvvnvzfdawsnftgjabl`), but only `0001`→`0010` are
+   confirmed applied — **`0011`→`0014` still need applying, see "Remaining Human
+   TODOs" above.** Seeded with real slots + 20 Frozen-cast fake profiles. If you
+   deploy against a fresh Supabase project instead, apply all fourteen migrations in
+   order first, then re-seed.
 6. **Smoke test on the domain:** magic-link login → onboarding (5 steps) → join a dinner
    (try a party of 2–3) → admin runs matching at `/<domain>/admin` → reveal → chat
    delivers live → People's Say hi.
