@@ -28,6 +28,18 @@ export async function MealsListSection() {
     }
   }
 
+  // Which slot (if any) already has a revealed table for this user — lets
+  // "Going" open a chat link instead of just re-showing the join form.
+  const { data: groupRows } = await supabase
+    .from("group_members")
+    .select("group:groups(id, slot_id)")
+    .eq("user_id", user.id);
+  const myGroupBySlot: Record<string, string> = {};
+  for (const r of (groupRows ?? []) as { group: { id: string; slot_id: string } | { id: string; slot_id: string }[] }[]) {
+    const g = Array.isArray(r.group) ? r.group[0] : r.group;
+    if (g?.slot_id) myGroupBySlot[g.slot_id] = g.id;
+  }
+
   if (!slots?.length) {
     return (
       <p style={{ color: "var(--ink-2)", fontSize: 15, paddingTop: 8 }}>
@@ -40,6 +52,7 @@ export async function MealsListSection() {
       slots={slots}
       counts={counts}
       mine={mine}
+      myGroupBySlot={myGroupBySlot}
       nowMs={Date.now()}
       isGuest={!!user.is_anonymous}
       timezone={conference?.timezone}

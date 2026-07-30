@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import JoinSheet from "./JoinSheet";
+import GoingSheet from "./GoingSheet";
 import { joinSlot, leaveSlot } from "@/app/actions/signups";
 
 export type Slot = {
@@ -31,6 +32,7 @@ export default function MealsList({
   slots,
   counts: counts0,
   mine: mine0,
+  myGroupBySlot = {},
   nowMs,
   isGuest = false,
   timezone = "America/New_York",
@@ -38,6 +40,7 @@ export default function MealsList({
   slots: Slot[];
   counts: Record<string, number>;
   mine: Record<string, Signup>;
+  myGroupBySlot?: Record<string, string>;
   nowMs: number;
   isGuest?: boolean;
   timezone?: string;
@@ -45,7 +48,11 @@ export default function MealsList({
   const router = useRouter();
   const [mine, setMine] = useState(mine0);
   const [counts, setCounts] = useState(counts0);
+  // Two separate sheets: `openId` is the lightweight "you're going" info view
+  // (chat link / leave), `editId` is the join/edit form (new joins, or
+  // "Change how many / notes" from the going sheet). Never both at once.
   const [openId, setOpenId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   function flashToast(msg: string) {
@@ -70,7 +77,7 @@ export default function MealsList({
       const prevSize = prevMine?.partySize ?? 0;
       setMine((m) => ({ ...m, [slotId]: { partySize, notes } }));
       setCounts((c) => ({ ...c, [slotId]: prevCount - prevSize + partySize }));
-      setOpenId(null);
+      setEditId(null);
     } else if (res.error !== "schedule_conflict") {
       flashToast(res.error === "closed" ? "This one just closed." : "Couldn't save. Try again.");
     }
@@ -84,6 +91,7 @@ export default function MealsList({
     setMine((m) => ({ ...m, [slotId]: undefined as unknown as Signup }));
     setCounts((c) => ({ ...c, [slotId]: Math.max(0, prevCount - (prevMine?.partySize ?? 1)) }));
     setOpenId(null);
+    setEditId(null);
 
     const res = await leaveSlot(slotId);
     if (!res.ok) {
@@ -93,7 +101,8 @@ export default function MealsList({
     }
   }
 
-  const activeSlot = slots.find((s) => s.id === openId) ?? null;
+  const goingSlot = slots.find((s) => s.id === openId) ?? null;
+  const activeSlot = slots.find((s) => s.id === editId) ?? null;
 
   return (
     <div>
@@ -121,7 +130,7 @@ export default function MealsList({
                 <button
                   className="act act--in"
                   onClick={() => setOpenId(slot.id)}
-                  aria-label={`You're in ${slot.title}. Edit signup.`}
+                  aria-label={`You're in ${slot.title}. View details.`}
                 >
                   Going
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -134,7 +143,7 @@ export default function MealsList({
                 <button
                   className="act act--join"
                   data-slot-id={slot.id}
-                  onClick={() => (isGuest ? router.push("/login") : setOpenId(slot.id))}
+                  onClick={() => (isGuest ? router.push("/login") : setEditId(slot.id))}
                 >
                   Join <span aria-hidden>▸</span>
                 </button>
@@ -144,13 +153,27 @@ export default function MealsList({
         })}
       </div>
 
+      {goingSlot && (
+        <GoingSheet
+          slot={goingSlot}
+          groupId={myGroupBySlot[goingSlot.id]}
+          onClose={() => setOpenId(null)}
+          onEdit={() => {
+            setOpenId(null);
+            setEditId(goingSlot.id);
+          }}
+          onLeave={handleLeave}
+          timezone={timezone}
+        />
+      )}
+
       {activeSlot && (
         <JoinSheet
           slot={activeSlot}
           joined={!!mine[activeSlot.id]}
           signup={mine[activeSlot.id]}
           closed={new Date(activeSlot.join_deadline).getTime() <= nowMs}
-          onClose={() => setOpenId(null)}
+          onClose={() => setEditId(null)}
           onJoin={handleJoin}
           onLeave={handleLeave}
           timezone={timezone}
