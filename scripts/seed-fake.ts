@@ -76,6 +76,13 @@ async function main() {
       school: pick(SCHOOLS, i),
       position: pick(POSITIONS, i),
       interests: interestsFor(i),
+      // Predates the event/stay onboarding step (migration 0009) — without
+      // these, isEligibleForSlot() treats every fake signup as a schedule
+      // conflict (null event_id = "picked none of these") and matching
+      // silently excludes all of them. Covers the seeded slot dates.
+      event_id: "ukc2026",
+      stay_start: "2026-08-05",
+      stay_end: "2026-08-09",
     });
     if (pErr) throw new Error(`profile upsert ${email}: ${pErr.message}`);
 
