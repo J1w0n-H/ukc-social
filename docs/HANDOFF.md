@@ -1,6 +1,35 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-29 (People's stay/interest/school filtering brought back onto 친구/Home)_
+_Last updated: 2026-07-30 (LLM "suggested place" replaced with an icebreaker question)_
+
+### Update — 2026-07-30 Dropped the LLM-invented "suggested place," added an icebreaker question
+
+`suggestedPlace` was pure creative text generation — `buildMatchPrompt` just asked
+Claude for "a suggested cuisine near X," with no real venue or reservation data behind
+it. That's exactly why it produced ungrounded, occasionally nonsensical results (a
+coffee-shop-sounding name suggested for a dinner slot, previously reproduced). Where
+to actually eat is now left to the table to sort out themselves in chat.
+
+- **Migration `0015_group_starter_question.sql`**: `groups.suggested_place` renamed to
+  `starter_question`. **Not yet applied to the live Supabase project** — joins
+  `0011`–`0014` in the "Remaining Human TODOs" backlog below.
+- `lib/matching.ts`: `MatchGroup.starterQuestion` replaces `suggestedPlace`; the
+  now-unused `location` param dropped from `buildMatchPrompt`/`matchSlot` (it only
+  ever existed to build the "near X" phrase). Prompt now asks for "a fun icebreaker
+  question the table could open with — grounded in what they actually have in
+  common, not generic small talk." Round-robin/repacked tables still get an honest
+  empty string (no starter question), consistent with their plain name + generic
+  rationale.
+- Every surface that showed a place now shows a "💬 Break the ice" question instead:
+  `GroupReveal.tsx`, Home's `Revealed`/`DayOf`/per-table cards
+  (`app/(tabs)/home/page.tsx`), and `Chat.tsx`'s empty state. `Chat.tsx`'s `meetLine`
+  simplified to time-only (place was the other half of that line).
+- `lib/matching.test.ts`: renamed fixtures, added a regression guard —
+  `buildMatchPrompt`'s output must mention "icebreaker question" and must NOT mention
+  "cuisine" or "suggested place." Test count: 87 → 88.
+- Verified: `tsc`, `npm test` (88/88), `npm run lint` (21 errors + 1 warning — matches
+  the pre-existing baseline exactly), `npm run build` (all 19 routes), dev-server
+  smoke check.
 
 ### Update — 2026-07-29 People's filtering brought back onto 친구 (Home)
 
@@ -324,12 +353,14 @@ of this file. Items resolved since the last pass (migration `0008`, the original
 Vercel deploy, rides/polish) have been removed rather than left stale; see the dated
 Updates above for what actually closed them out._
 
-1. **Apply migrations `0011`–`0014` to the live Supabase project**
+1. **Apply migrations `0011`–`0015` to the live Supabase project**
    (`kxvvnvzfdawsnftgjabl`) — `0011_ride_join.sql`, `0012_conference.sql`,
-   `0013_message_reads.sql`, `0014_notifications.sql`. Same manual SQL-editor step as
-   every prior migration. Until these are applied: ride "Share" isn't real, `/admin`
-   can't register a conference, `/chat`'s unread badges stay at 0, and no
-   notifications get written anywhere.
+   `0013_message_reads.sql`, `0014_notifications.sql`,
+   `0015_group_starter_question.sql`. Same manual SQL-editor step as every prior
+   migration. Until these are applied: ride "Share" isn't real, `/admin` can't
+   register a conference, `/chat`'s unread badges stay at 0, no notifications get
+   written anywhere, and reading/writing `groups.starter_question` will fail against
+   the live DB's still-named `suggested_place` column.
 2. **Register a conference at `/admin`** (sign in as `ADMIN_EMAIL`) — name, location,
    start/end dates, timezone, airport code. Until one is registered, every page shows
    the generic "Icebreaker" fallback instead of the real event name/dates, and
