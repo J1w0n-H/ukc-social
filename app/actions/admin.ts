@@ -83,7 +83,6 @@ async function matchOneSlot(
   try {
     groups = await matchSlot(signups, {
       eventName: conference?.name,
-      location: conference?.location,
     });
   } catch {
     groups = roundRobinGroups(signups); // ponytail: falls back on missing ANTHROPIC_API_KEY
@@ -119,7 +118,7 @@ async function matchOneSlot(
         slot_id: slot.id,
         name: names[i],
         rationale: g.rationale,
-        suggested_place: g.suggestedPlace,
+        starter_question: g.starterQuestion,
         meet_time: slot.starts_at,
       })),
     )

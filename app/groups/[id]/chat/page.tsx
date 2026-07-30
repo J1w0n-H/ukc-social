@@ -15,7 +15,7 @@ export default async function GroupChatPage({
   // RLS gives members-only access — a non-member gets null → 404.
   const { data: group } = await supabase
     .from("groups")
-    .select("id, name, suggested_place, meet_time")
+    .select("id, name, starter_question, meet_time")
     .eq("id", id)
     .maybeSingle();
   if (!group) notFound();
@@ -50,7 +50,7 @@ export default async function GroupChatPage({
       groupId={group.id}
       groupName={group.name}
       members={members}
-      meetPlace={group.suggested_place ?? null}
+      starterQuestion={group.starter_question ?? null}
       meetTime={group.meet_time ?? null}
       timezone={conference?.timezone}
     />

@@ -31,7 +31,7 @@ type Group = {
   id: string;
   name: string;
   rationale: string;
-  suggested_place: string;
+  starter_question: string;
   meet_time: string | null;
   slot: Slot | null;
 };
@@ -46,7 +46,7 @@ type TableMember = {
 type TableCard = {
   groupId: string;
   tableName: string;
-  suggestedPlace: string;
+  starterQuestion: string;
   slot: Slot;
   members: TableMember[];
 };
@@ -71,7 +71,7 @@ export default async function HomePage() {
   const { data: groupRows } = await supabase
     .from("group_members")
     .select(
-      "group:groups(id, name, rationale, suggested_place, meet_time, slot:slots(id, title, starts_at, area, join_deadline))",
+      "group:groups(id, name, rationale, starter_question, meet_time, slot:slots(id, title, starts_at, area, join_deadline))",
     )
     .eq("user_id", user.id);
 
@@ -179,7 +179,7 @@ export default async function HomePage() {
       .map((g) => ({
         groupId: g.id,
         tableName: g.name,
-        suggestedPlace: g.suggested_place,
+        starterQuestion: g.starter_question,
         slot: g.slot!,
         members: membersByGroup.get(g.id) ?? [],
       }))
@@ -340,9 +340,9 @@ function GroupmatesSection({
                   {fmt.format(new Date(t.slot.starts_at))}
                   {t.slot.area ? ` · ${t.slot.area}` : ""}
                 </div>
-                {t.suggestedPlace && (
-                  <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 2 }}>
-                    📍 {t.suggestedPlace}
+                {t.starterQuestion && (
+                  <div style={{ fontSize: 13, color: "var(--accent)", marginTop: 6, lineHeight: 1.4 }}>
+                    💬 {t.starterQuestion}
                   </div>
                 )}
               </div>
@@ -526,8 +526,10 @@ function Revealed({
       {names.length > 0 && (
         <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 8 }}>{names.join(", ")}</p>
       )}
-      {group.suggested_place && (
-        <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 6 }}>📍 {group.suggested_place}</p>
+      {group.starter_question && (
+        <p style={{ fontSize: 14, color: "var(--ink)", marginTop: 6, lineHeight: 1.4, maxWidth: "42ch" }}>
+          💬 {group.starter_question}
+        </p>
       )}
       {group.rationale && (
         <p
@@ -565,9 +567,9 @@ function DayOf({
       <h1 style={{ fontSize: 48, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 10, lineHeight: 1 }}>
         {meet ? timeFmt.format(new Date(meet)) : "Soon"}
       </h1>
-      {group.suggested_place && (
-        <p style={{ fontSize: 17, color: "var(--ink)", marginTop: 8, fontWeight: 600 }}>
-          📍 {group.suggested_place}
+      {group.starter_question && (
+        <p style={{ fontSize: 16, color: "var(--ink)", marginTop: 8, fontWeight: 600, lineHeight: 1.4 }}>
+          💬 {group.starter_question}
         </p>
       )}
       <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 10 }}>

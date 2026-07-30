@@ -152,15 +152,22 @@ describe("roundRobinGroups — party headcount", () => {
 });
 
 describe("buildMatchPrompt", () => {
-  it("interpolates eventName and location when given", () => {
-    const p = buildMatchPrompt([], { min: 4, max: 6, eventName: "KSEA 2026", location: "Washington, DC" });
+  it("interpolates eventName when given", () => {
+    const p = buildMatchPrompt([], { min: 4, max: 6, eventName: "KSEA 2026" });
     expect(p).toContain("KSEA 2026 attendees");
-    expect(p).toContain("near Washington, DC");
   });
-  it("falls back to generic phrasing when eventName/location are omitted", () => {
+  it("falls back to generic phrasing when eventName is omitted", () => {
     const p = buildMatchPrompt([], { min: 4, max: 6 });
     expect(p).toContain("conference attendees");
-    expect(p).not.toContain("near ");
+  });
+  it("asks for an icebreaker question, not a suggested place/cuisine", () => {
+    // Regression guard: an earlier version asked for "a suggested cuisine
+    // near X" — pure LLM invention with no real venue data behind it, and
+    // prone to nonsensical results. Where to meet is left to the group now.
+    const p = buildMatchPrompt([], { min: 4, max: 6 });
+    expect(p).toContain("icebreaker question");
+    expect(p.toLowerCase()).not.toContain("cuisine");
+    expect(p.toLowerCase()).not.toContain("suggested place");
   });
   it("embeds the min/max seat bounds and the roster JSON", () => {
     const roster = [{ userId: "u0" }];
@@ -175,7 +182,7 @@ describe("repackInvalid", () => {
     const sizes = [3, 3];
     const signups = parties(sizes);
     const groups: MatchGroup[] = [{ memberIds: ["u0", "u1"], name: "Table 1",
-      rationale: "warm llm rationale", suggestedPlace: "" }];
+      rationale: "warm llm rationale", starterQuestion: "" }];
     const out = repackInvalid(groups, ids(2), signups, 4, 6, sizeMap(sizes));
     expect(out).toBe(groups); // same reference — no repack work done
   });
@@ -187,8 +194,8 @@ describe("repackInvalid", () => {
     const sizes = [4, 4, 2, 2]; // u0,u1 oversized together; u2,u3 fine together
     const signups = parties(sizes);
     const badGroups: MatchGroup[] = [
-      { memberIds: ["u0", "u1"], name: "Table 1", rationale: "llm rationale", suggestedPlace: "" },
-      { memberIds: ["u2", "u3"], name: "Table 2", rationale: "llm rationale", suggestedPlace: "" },
+      { memberIds: ["u0", "u1"], name: "Table 1", rationale: "llm rationale", starterQuestion: "" },
+      { memberIds: ["u2", "u3"], name: "Table 2", rationale: "llm rationale", starterQuestion: "" },
     ];
     const out = repackInvalid(badGroups, ids(4), signups, 4, 6, sizeMap(sizes));
     // The valid table (u2,u3) survives untouched, by reference.
@@ -206,7 +213,7 @@ describe("repackInvalid", () => {
     // u3 is missing entirely from this "LLM" output — not a clean partition,
     // so repackInvalid can't trust any individual group's membership.
     const brokenGroups: MatchGroup[] = [
-      { memberIds: ["u0", "u1", "u2"], name: "Table 1", rationale: "llm rationale", suggestedPlace: "" },
+      { memberIds: ["u0", "u1", "u2"], name: "Table 1", rationale: "llm rationale", starterQuestion: "" },
     ];
     const out = repackInvalid(brokenGroups, ids(4), signups, 4, 6, sizeMap(sizes));
     const all = out.flatMap((g) => g.memberIds).sort();
@@ -217,7 +224,7 @@ describe("repackInvalid", () => {
   it("is idempotent (not an infinite loop) for a lone party bigger than max", () => {
     const sizes = [7];
     const signups = parties(sizes);
-    const groups: MatchGroup[] = [{ memberIds: ["u0"], name: "Table 1", rationale: "llm rationale", suggestedPlace: "" }];
+    const groups: MatchGroup[] = [{ memberIds: ["u0"], name: "Table 1", rationale: "llm rationale", starterQuestion: "" }];
     const out = repackInvalid(groups, ["u0"], signups, 4, 6, sizeMap(sizes));
     expect(out.length).toBe(1);
     expect(out[0].memberIds).toEqual(["u0"]);

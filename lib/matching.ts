@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 export type SignupProfile = { userId: string; name: string; school: string;
   position: string; interests: string[]; partySize?: number; notes?: string };
 export type MatchGroup = { memberIds: string[]; name: string; rationale: string;
-  suggestedPlace: string };
+  starterQuestion: string };
 
 // A table's "size" is its total headcount — the sum of each member's party_size,
 // not the number of signup rows. A signup that comes with 2 friends weighs 3.
@@ -63,7 +63,7 @@ export function roundRobinGroups(signups: SignupProfile[], target = 5): MatchGro
   return bins
     .filter(b => b.ids.length > 0 || bins.length === 1)
     .map((b, i) => ({ memberIds: b.ids, name: `Table ${i + 1}`,
-      rationale: ROUND_ROBIN_RATIONALE, suggestedPlace: "" }));
+      rationale: ROUND_ROBIN_RATIONALE, starterQuestion: "" }));
 }
 
 // Keeps whatever groups are already valid from a failed attempt and only
@@ -93,16 +93,19 @@ export function repackInvalid(
 }
 
 // Pure + exported so the prompt text is unit-testable without hitting the
-// Anthropic API. `eventName`/`location` come from the admin-registered
-// `conferences` row (lib/conference.ts) — generic fallback if unset.
+// Anthropic API. `eventName` comes from the admin-registered `conferences`
+// row (lib/conference.ts) — generic fallback if unset. No `location`/place:
+// where to actually meet is left to the group, not invented by the LLM —
+// see docs/HANDOFF.md for why (an earlier version asked for a "suggested
+// cuisine near X," which produced ungrounded, sometimes nonsensical results
+// with no real venue data behind it).
 export function buildMatchPrompt(
   roster: unknown,
-  opts: { min: number; max: number; eventName?: string; location?: string },
+  opts: { min: number; max: number; eventName?: string },
 ): string {
-  const { min, max, eventName, location } = opts;
+  const { min, max, eventName } = opts;
   const event = eventName || "conference";
-  const place = location ? ` near ${location}` : "";
-  return `Group these ${event} attendees into dinner tables by shared research interests and vibe. Each table must seat ${min}-${max} people TOTAL. IMPORTANT: an attendee with "comesWithGroupOf": N arrives with a party of N people (including themselves) — count them as N seats and keep that whole party at one table. Every attendee appears in EXACTLY one group. Give each group a short fun name, a one-sentence "why you matched" rationale (warm, specific, mention shared interests), and a suggested cuisine${place} (local options welcome).\n\nAttendees:\n${JSON.stringify(roster, null, 1)}`;
+  return `Group these ${event} attendees into dinner tables by shared research interests and vibe. Each table must seat ${min}-${max} people TOTAL. IMPORTANT: an attendee with "comesWithGroupOf": N arrives with a party of N people (including themselves) — count them as N seats and keep that whole party at one table. Every attendee appears in EXACTLY one group. Give each group a short fun name, a one-sentence "why you matched" rationale (warm, specific, mention shared interests), and a fun icebreaker question the table could open with — grounded in what they actually have in common, not generic small talk.\n\nAttendees:\n${JSON.stringify(roster, null, 1)}`;
 }
 
 const TOOL = {
@@ -113,14 +116,14 @@ const TOOL = {
     properties: { groups: { type: "array", items: { type: "object", properties: {
       memberIds: { type: "array", items: { type: "string" } },
       name: { type: "string" }, rationale: { type: "string" },
-      suggestedPlace: { type: "string" } },
-      required: ["memberIds", "name", "rationale", "suggestedPlace"] } } },
+      starterQuestion: { type: "string" } },
+      required: ["memberIds", "name", "rationale", "starterQuestion"] } } },
     required: ["groups"] },
 };
 
 export async function matchSlot(signups: SignupProfile[],
-  opts: { min?: number; max?: number; model?: string; eventName?: string; location?: string } = {}): Promise<MatchGroup[]> {
-  const { min = 4, max = 6, model = "claude-sonnet-5", eventName, location } = opts;
+  opts: { min?: number; max?: number; model?: string; eventName?: string } = {}): Promise<MatchGroup[]> {
+  const { min = 4, max = 6, model = "claude-sonnet-5", eventName } = opts;
   // Nothing to match — skip the API call for a trivially empty roster. Every
   // *real* slot (however small) still runs the interest-aware LLM path below;
   // round-robin is reserved for genuine failure, not "small headcount."
@@ -130,7 +133,7 @@ export async function matchSlot(signups: SignupProfile[],
   const ids = signups.map(s => s.userId);
   const roster = signups.map(s => (s.partySize ?? 1) > 1
     ? { ...s, comesWithGroupOf: s.partySize } : s);
-  const prompt = buildMatchPrompt(roster, { min, max, eventName, location });
+  const prompt = buildMatchPrompt(roster, { min, max, eventName });
   let lastGroups: MatchGroup[] | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await client.messages.create({ model, max_tokens: 4096,

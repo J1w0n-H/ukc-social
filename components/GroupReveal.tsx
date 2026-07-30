@@ -73,7 +73,7 @@ export default function GroupReveal({
   groupId,
   name,
   rationale,
-  suggestedPlace,
+  starterQuestion,
   meetTime,
   slotTitle,
   slotStartsAt,
@@ -85,7 +85,7 @@ export default function GroupReveal({
   groupId: string;
   name: string;
   rationale: string;
-  suggestedPlace: string;
+  starterQuestion: string;
   meetTime: string | null;
   slotTitle: string;
   slotStartsAt: string | null;
@@ -265,47 +265,60 @@ export default function GroupReveal({
         </div>
       )}
 
-      {(suggestedPlace || meetTime) && (
+      {meetTime && (
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "var(--ink-3)",
+            }}
+          >
+            Meet at
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display), sans-serif",
+              fontSize: 20,
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              marginTop: 3,
+            }}
+          >
+            {fmtTime(meetTime, timezone)}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 4 }}>
+            Where to eat is up to the table — sort it out in chat.
+          </div>
+        </div>
+      )}
+
+      {starterQuestion && (
         <div
           style={{
-            marginTop: 20,
-            paddingTop: 16,
-            borderTop: "1px solid var(--line)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
+            marginTop: 16,
+            padding: "14px 16px",
+            borderRadius: 14,
+            background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)",
           }}
         >
-          {suggestedPlace && (
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  color: "var(--ink-3)",
-                }}
-              >
-                Suggested spot
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 600, marginTop: 3 }}>{suggestedPlace}</div>
-            </div>
-          )}
-          {meetTime && (
-            <div
-              style={{
-                fontFamily: "var(--font-display), sans-serif",
-                fontSize: 20,
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {fmtTime(meetTime, timezone)}
-            </div>
-          )}
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "var(--accent)",
+            }}
+          >
+            💬 Break the ice
+          </div>
+          <div style={{ fontSize: 15, color: "var(--ink)", marginTop: 4, lineHeight: 1.4 }}>
+            {starterQuestion}
+          </div>
         </div>
       )}
 

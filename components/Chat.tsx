@@ -86,7 +86,7 @@ export default function Chat({
   groupId,
   groupName,
   members,
-  meetPlace,
+  starterQuestion,
   meetTime,
   timezone = "America/New_York",
 }: {
@@ -96,7 +96,7 @@ export default function Chat({
   groupId: string;
   groupName: string;
   members: Member[];
-  meetPlace: string | null;
+  starterQuestion: string | null;
   meetTime: string | null;
   timezone?: string;
 }) {
@@ -299,9 +299,7 @@ export default function Chat({
     const extra = names.length - 3;
     return extra > 0 ? `${shown} +${extra}` : shown;
   })();
-  const meetLine = [meetPlace, meetTime && dayTimeFmt.format(new Date(meetTime))]
-    .filter(Boolean)
-    .join(" · ");
+  const meetLine = meetTime ? dayTimeFmt.format(new Date(meetTime)) : "";
 
   return (
     <div className="chat-root">
@@ -394,6 +392,12 @@ export default function Chat({
               <div className="empty-plan">
                 <span className="plan-kicker">Your plan</span>
                 <span className="plan-line">{meetLine}</span>
+              </div>
+            )}
+            {starterQuestion && (
+              <div className="empty-plan empty-plan--starter">
+                <span className="plan-kicker">💬 Break the ice</span>
+                <span className="plan-line">{starterQuestion}</span>
               </div>
             )}
           </div>
@@ -652,6 +656,20 @@ export default function Chat({
           display: inline-flex; flex-direction: column; gap: 2px;
           margin-top: 20px; padding-top: 16px;
           border-top: 1px solid var(--line);
+        }
+        .empty-plan--starter {
+          border-top: none;
+          margin-top: 14px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--accent) 8%, transparent);
+          border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+          max-width: 320px;
+        }
+        .empty-plan--starter .plan-kicker { color: var(--accent); }
+        .empty-plan--starter .plan-line {
+          font-family: inherit; font-size: 14px; font-weight: 500;
+          line-height: 1.4; color: var(--ink);
         }
         .sheet-plan { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
         .plan-kicker {
