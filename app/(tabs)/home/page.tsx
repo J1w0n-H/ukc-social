@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
 import Wordmark from "@/components/Wordmark";
-import { PeopleSection } from "../people/page";
 
 const HOUR = 3600_000;
 
@@ -136,6 +135,28 @@ export default async function HomePage() {
   const fl = await supabase.from("flights").select("id").eq("user_id", user.id).limit(1);
   if (!fl.error && fl.data && fl.data.length) hasFlight = true;
 
+  // 친구 tab shows only people you actually share a group with — not the full
+  // directory (that's "Meet other participants", which links to /people and
+  // its full stay/interest/school filtering).
+  const groupIds = myGroups.map((g) => g.id);
+  let groupmates: { id: string; name: string; photo_url: string | null; school: string; position: string }[] = [];
+  if (groupIds.length) {
+    const { data: memberRows } = await supabase
+      .from("group_members")
+      .select("user_id")
+      .in("group_id", groupIds)
+      .neq("user_id", user.id);
+    const peerIds = [...new Set((memberRows ?? []).map((r) => r.user_id as string))];
+    if (peerIds.length) {
+      const { data: peers } = await supabase
+        .from("directory_profiles")
+        .select("id, name, photo_url, school, position")
+        .in("id", peerIds)
+        .order("name");
+      groupmates = peers ?? [];
+    }
+  }
+
   return (
     <section style={{ padding: "24px 20px" }}>
       <header style={{ marginBottom: 24 }}>
@@ -157,10 +178,7 @@ export default async function HomePage() {
 
       <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
 
-      <div style={{ marginTop: 32 }}>
-        <div className="hub-head">People here</div>
-        <PeopleSection />
-      </div>
+      <GroupmatesSection people={groupmates} />
 
       <LinkStyles />
     </section>
@@ -235,6 +253,54 @@ function FillInHub({
     <div style={{ marginTop: 32 }}>
       <div className="hub-head">Line these up</div>
       <div className="hub-list">{rows}</div>
+    </div>
+  );
+}
+
+function initials(name: string) {
+  const p = name.trim().split(/\s+/).filter(Boolean);
+  return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase() || "·";
+}
+
+// Only people you actually share a table/ride group with — the full,
+// filterable directory lives behind "Meet other participants" (-> /people).
+function GroupmatesSection({
+  people,
+}: {
+  people: { id: string; name: string; photo_url: string | null; school: string; position: string }[];
+}) {
+  return (
+    <div style={{ marginTop: 32 }}>
+      <div className="hub-head">People you&apos;ve matched with</div>
+      {people.length === 0 ? (
+        <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 8 }}>
+          No one yet — join a dinner and get matched to see people here.
+        </p>
+      ) : (
+        <div style={{ marginTop: 8 }}>
+          {people.map((p) => (
+            <div key={p.id} className="mate-row">
+              <div
+                aria-hidden
+                className="mate-avatar"
+                style={
+                  p.photo_url
+                    ? { background: `center/cover no-repeat url("${p.photo_url}")` }
+                    : undefined
+                }
+              >
+                {!p.photo_url && initials(p.name)}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{p.name}</div>
+                <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
+                  {[p.school, p.position].filter(Boolean).join(" · ") || "—"}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -483,6 +549,28 @@ function LinkStyles() {
         margin-bottom: 2px;
       }
       .hub-list { border-bottom: 1px solid var(--line); }
+      .mate-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .mate-row:last-child { border-bottom: none; }
+      .mate-avatar {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink-2);
+        display: grid;
+        place-items: center;
+        font-size: 14px;
+        font-weight: 600;
+        overflow: hidden;
+      }
     `}</style>
   );
 }
