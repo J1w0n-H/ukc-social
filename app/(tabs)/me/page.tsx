@@ -5,7 +5,6 @@ import { toLocalInput } from "@/lib/rides";
 import { getConference } from "@/lib/conference";
 import SignupGate from "@/components/SignupGate";
 import ProfileEditor from "@/components/ProfileEditor";
-import FlightEditor from "@/components/FlightEditor";
 
 const fmtSlot = (timezone: string) =>
   new Intl.DateTimeFormat("en-US", {
@@ -63,16 +62,32 @@ export default async function MePage() {
     .eq("user_id", user.id);
   const arrivalFlight = (flightRows ?? []).find((f) => f.direction === "arrival");
   const departureFlight = (flightRows ?? []).find((f) => f.direction === "departure");
+  const timezone = conference?.timezone ?? "America/New_York";
+  // Conference dates as a starting point when nothing's saved yet — a blank
+  // datetime-local input means setting year/month/day/hour/minute from
+  // scratch, same reasoning as onboarding's StepPlans.
+  const flightDefaults = {
+    arrival: conference ? `${toLocalInput(conference.starts_at, timezone).slice(0, 10)}T12:00` : "",
+    departure: conference ? `${toLocalInput(conference.ends_at, timezone).slice(0, 10)}T12:00` : "",
+  };
 
   return (
     <section style={{ padding: "24px 20px" }}>
       <header className="page-head">
-        <p className="page-kicker">{conference?.name ?? "Me"}</p>
+        <p className="page-kicker">{conference?.name ?? "Icebreaker"}</p>
         <h1 className="page-title">Me</h1>
         <p className="page-sub">Your profile, dinners, and tables.</p>
       </header>
 
-      <ProfileEditor userId={user.id} initial={profile} />
+      <ProfileEditor
+        userId={user.id}
+        initial={profile}
+        initialFlight={{
+          arrival: arrivalFlight ? toLocalInput(arrivalFlight.scheduled_at, timezone) : "",
+          departure: departureFlight ? toLocalInput(departureFlight.scheduled_at, timezone) : "",
+        }}
+        flightDefaults={flightDefaults}
+      />
 
       <div style={{ marginTop: 36 }}>
         <h2 className="sec-h">My dinners</h2>
@@ -120,11 +135,6 @@ export default async function MePage() {
           </div>
         )}
       </div>
-
-      <FlightEditor
-        initialArrival={arrivalFlight ? toLocalInput(arrivalFlight.scheduled_at, conference?.timezone) : ""}
-        initialDeparture={departureFlight ? toLocalInput(departureFlight.scheduled_at, conference?.timezone) : ""}
-      />
 
       <style>{`
         .sec-h {

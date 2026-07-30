@@ -108,7 +108,7 @@ export default async function RidesPage() {
     <section className="rides">
       <header className="rides-head">
         <p className="rides-kicker">
-          {[conference?.airport_code, conference?.name].filter(Boolean).join(" · ") || "Rides"}
+          {[conference?.airport_code, conference?.name].filter(Boolean).join(" · ") || "Icebreaker"}
         </p>
         <h1 className="rides-title">Rides</h1>
         <p className="rides-sub">See who flies near your time, then split a car.</p>

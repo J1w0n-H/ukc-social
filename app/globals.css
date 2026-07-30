@@ -179,11 +179,10 @@ h3 {
   .app-main { padding-bottom: 0; padding-left: 64px; }
 }
 
-/* NotificationBell's fixed position: top-right on mobile (clear of the
-   bottom tabbar), moved down into the left rail's column on desktop so it
-   sits above 마이페이지 the way the rail groups it — same component, just
-   repositioned via CSS, not a fork. */
+/* NotificationBell's fixed position — top-right on every breakpoint. An
+   earlier version tried to tuck it into the left rail's column on desktop
+   (bottom: 84px, guessed to sit just above 마이페이지), but that offset was
+   never actually anchored to the rail's real layout and drifted out of
+   place. Top-right never collides with a left-side rail at any width, so
+   it stays put instead of chasing a second, fragile position. */
 .notif-slot { position: fixed; top: 8px; right: 8px; z-index: 55; }
-@media (min-width: 1024px) {
-  .notif-slot { top: auto; right: auto; left: 12px; bottom: 84px; }
-}

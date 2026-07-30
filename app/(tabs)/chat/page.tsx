@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/supabase/server";
+import { getConference } from "@/lib/conference";
 
 const dtf = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -23,6 +24,7 @@ const one = <T,>(v: T | T[] | null | undefined): T | null =>
 
 export default async function ChatIndexPage() {
   const { user, supabase } = await requireUser();
+  const conference = await getConference(supabase);
 
   const { data: groupRows } = await supabase
     .from("group_members")
@@ -72,7 +74,7 @@ export default async function ChatIndexPage() {
   return (
     <section style={{ padding: "24px 20px" }}>
       <header className="page-head">
-        <p className="page-kicker">채팅</p>
+        <p className="page-kicker">{conference?.name ?? "Icebreaker"}</p>
         <h1 className="page-title">Chat</h1>
         <p className="page-sub">Every table and ride you&apos;re part of.</p>
       </header>

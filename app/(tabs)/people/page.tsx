@@ -36,7 +36,7 @@ export default async function PeoplePage() {
   return (
     <section style={{ padding: "24px 20px" }}>
       <header className="page-head">
-        <p className="page-kicker">{conference?.name ?? "People"}</p>
+        <p className="page-kicker">{conference?.name ?? "Icebreaker"}</p>
         <h1 className="page-title">People</h1>
         <p className="page-sub">Everyone here this week.</p>
       </header>
