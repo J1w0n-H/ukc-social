@@ -30,6 +30,7 @@ type Slot = { id: string; title: string; starts_at: string; area: string; join_d
 type Group = {
   id: string;
   name: string;
+  rationale: string;
   suggested_place: string;
   meet_time: string | null;
   slot: Slot | null;
@@ -70,7 +71,7 @@ export default async function HomePage() {
   const { data: groupRows } = await supabase
     .from("group_members")
     .select(
-      "group:groups(id, name, suggested_place, meet_time, slot:slots(id, title, starts_at, area, join_deadline))",
+      "group:groups(id, name, rationale, suggested_place, meet_time, slot:slots(id, title, starts_at, area, join_deadline))",
     )
     .eq("user_id", user.id);
 
@@ -197,7 +198,11 @@ export default async function HomePage() {
       {dayOf && nextGroup ? (
         <DayOf group={nextGroup} names={memberNames} timeFmt={timeFmt} />
       ) : nextGroup ? (
-        <Revealed group={nextGroup} names={memberNames} />
+        <Revealed
+          group={nextGroup}
+          names={memberNames}
+          timezone={conference?.timezone ?? "America/New_York"}
+        />
       ) : nextSignup ? (
         <JoinedWaiting slot={nextSignup} count={waitingCount} timeFmt={timeFmt} />
       ) : (
@@ -489,18 +494,53 @@ function JoinedWaiting({
   );
 }
 
-function Revealed({ group, names }: { group: Group; names: string[] }) {
+function Revealed({
+  group,
+  names,
+  timezone,
+}: {
+  group: Group;
+  names: string[];
+  timezone: string;
+}) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
+  const when = group.slot
+    ? [dtf.format(new Date(group.meet_time ?? group.slot.starts_at)), group.slot.area]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
   return (
     <div>
       <div className="eyebrow">Your table is set</div>
       <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 10, lineHeight: 1 }}>
         {group.name}
       </h1>
+      {when && <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 10 }}>{when}</p>}
       {names.length > 0 && (
-        <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 12 }}>{names.join(", ")}</p>
+        <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 8 }}>{names.join(", ")}</p>
       )}
       {group.suggested_place && (
         <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 6 }}>📍 {group.suggested_place}</p>
+      )}
+      {group.rationale && (
+        <p
+          style={{
+            fontSize: 14,
+            color: "var(--accent)",
+            marginTop: 12,
+            lineHeight: 1.5,
+            maxWidth: "42ch",
+          }}
+        >
+          {group.rationale}
+        </p>
       )}
       <Link href={`/groups/${group.id}`} className="cta-line">
         Meet your table <span aria-hidden>▸</span>
@@ -534,6 +574,11 @@ function DayOf({
         {group.name}
         {names.length ? ` · ${names.join(", ")}` : ""}
       </p>
+      {group.rationale && (
+        <p style={{ fontSize: 13, color: "var(--accent)", marginTop: 8, lineHeight: 1.5, maxWidth: "42ch" }}>
+          {group.rationale}
+        </p>
+      )}
       <Link
         href={`/groups/${group.id}/chat`}
         style={{
