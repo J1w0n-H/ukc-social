@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { sayHi } from "@/app/actions/hi";
 import { stayRelation, STAY_LABEL, type StayWindow } from "@/lib/stay";
 
 export type Person = {
@@ -58,15 +57,11 @@ type StayFilter = "all" | "early" | "late" | "same";
 export default function PeopleBrowser({
   people,
   meId,
-  isGuest,
   myStay,
-  hiSent,
 }: {
   people: Person[];
   meId: string;
-  isGuest: boolean;
   myStay: StayWindow;
-  hiSent: string[];
 }) {
   const [query, setQuery] = useState("");
   const [activeInterest, setActiveInterest] = useState<string | null>(null);
@@ -74,8 +69,6 @@ export default function PeopleBrowser({
   const [activeStay, setActiveStay] = useState<StayFilter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contacts>({ state: "loading" });
-  const [sentIds, setSentIds] = useState<Set<string>>(() => new Set(hiSent));
-  const [hiErrorId, setHiErrorId] = useState<string | null>(null);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<Element | null>(null);
@@ -189,20 +182,6 @@ export default function PeopleBrowser({
     });
   }
 
-  async function handleSayHi(id: string) {
-    setHiErrorId(null);
-    setSentIds((s) => new Set(s).add(id));
-    const res = await sayHi(id);
-    if (!res.ok) {
-      setSentIds((s) => {
-        const next = new Set(s);
-        next.delete(id);
-        return next;
-      });
-      setHiErrorId(id);
-    }
-  }
-
   const STAY_FILTERS: { id: StayFilter; label: string }[] = [
     { id: "all", label: "All" },
     { id: "early", label: "Arriving early" },
@@ -236,11 +215,6 @@ export default function PeopleBrowser({
           );
         })}
       </div>
-      <p style={{ fontSize: 12, color: "var(--ink-3)", margin: "4px 0 4px", lineHeight: 1.5 }}>
-        Say hi to anyone whose stay overlaps yours — full contacts still unlock only once
-        you share a table or ride.
-      </p>
-
       {allInterests.length > 0 && (
         <div className="chip-row">
           {allInterests.map((interest) => {
@@ -310,8 +284,6 @@ export default function PeopleBrowser({
           {filtered.map((person) => {
             const rel = relationOf(person);
             const isMe = person.id === meId;
-            const sent = sentIds.has(person.id);
-            const noOverlap = rel === "no-overlap";
             return (
               <div key={person.id} className="person-row">
                 <button
@@ -345,28 +317,6 @@ export default function PeopleBrowser({
                     {rel && !isMe && <div className="stay-badge">{STAY_LABEL[rel]}</div>}
                   </div>
                 </button>
-                {!isMe && isGuest && (
-                  <div className="say-hi-col">
-                    <a href="/login" className="say-hi-btn say-hi-guest">
-                      Sign up to say hi
-                    </a>
-                  </div>
-                )}
-                {!isMe && !isGuest && (
-                  <div className="say-hi-col">
-                    <button
-                      type="button"
-                      className="say-hi-btn"
-                      disabled={sent || noOverlap}
-                      onClick={() => handleSayHi(person.id)}
-                    >
-                      {sent ? "Said hi ✓" : "Say hi"}
-                    </button>
-                    <span className="say-hi-lock">
-                      {hiErrorId === person.id ? "Couldn't send — try again" : "🔒 contact locked"}
-                    </span>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -575,39 +525,6 @@ export default function PeopleBrowser({
           font-weight: 600;
           color: var(--accent);
           margin-top: 4px;
-        }
-        .say-hi-col {
-          flex-shrink: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 4px;
-        }
-        .say-hi-btn {
-          flex-shrink: 0;
-          min-height: 32px;
-          padding: 0 12px;
-          border-radius: 999px;
-          border: 1px solid var(--accent);
-          background: none;
-          color: var(--accent);
-          font-size: 12px;
-          font-weight: 700;
-          white-space: nowrap;
-          cursor: pointer;
-        }
-        .say-hi-btn:disabled {
-          opacity: 0.5;
-          cursor: default;
-        }
-        .say-hi-guest {
-          display: inline-flex;
-          align-items: center;
-          text-decoration: none;
-        }
-        .say-hi-lock {
-          font-size: 10px;
-          color: var(--ink-3);
         }
         .you-tag {
           font-size: 11px;

@@ -28,19 +28,11 @@ export async function PeopleSection() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const { data: sentRows } = await supabase
-    .from("hi_requests")
-    .select("to_user_id")
-    .eq("from_user_id", user.id);
-  const hiSent = (sentRows ?? []).map((r) => r.to_user_id as string);
-
   return (
     <PeopleBrowser
       people={rows}
       meId={user.id}
-      isGuest={!!user.is_anonymous}
       myStay={{ start: me?.stay_start ?? null, end: me?.stay_end ?? null }}
-      hiSent={hiSent}
     />
   );
 }
