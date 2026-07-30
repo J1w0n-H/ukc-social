@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { conferenceDayStatus } from "./conferenceDay";
+import { conferenceDayStatus, formatConferenceDay } from "./conferenceDay";
 
 const conf = {
   starts_at: "2026-08-05T13:00:00Z", // Aug 5, 9am EDT
@@ -70,5 +70,25 @@ describe("conferenceDayStatus", () => {
       day: 1,
       totalDays: 1,
     });
+  });
+});
+
+describe("formatConferenceDay", () => {
+  it("is null for 'no-conference' — callers pick their own fallback", () => {
+    expect(formatConferenceDay({ kind: "no-conference" }, "UKC 2026")).toBeNull();
+  });
+
+  it("formats 'before' as a D-N countdown", () => {
+    expect(formatConferenceDay({ kind: "before", daysUntil: 3 }, "UKC 2026")).toBe("D-3 to UKC 2026");
+  });
+
+  it("formats 'during' as 'Day N of Total'", () => {
+    expect(formatConferenceDay({ kind: "during", day: 2, totalDays: 4 }, "UKC 2026")).toBe(
+      "Day 2 of 4 · UKC 2026",
+    );
+  });
+
+  it("formats 'after' as wrapped", () => {
+    expect(formatConferenceDay({ kind: "after" }, "UKC 2026")).toBe("UKC 2026 has wrapped");
   });
 });

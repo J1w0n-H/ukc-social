@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupScheduleByDay, type ScheduleItem } from "./schedule";
+import { groupScheduleByDay, currentDayIndex, type ScheduleItem, type ScheduleDay } from "./schedule";
 
 const item = (over: Partial<ScheduleItem>): ScheduleItem => ({
   id: "id",
@@ -69,5 +69,31 @@ describe("groupScheduleByDay", () => {
 
   it("returns an empty array for no items", () => {
     expect(groupScheduleByDay([], "America/New_York")).toEqual([]);
+  });
+});
+
+const day = (date: string): ScheduleDay => ({ date, slots: [] });
+const days = [day("2026-08-05"), day("2026-08-06"), day("2026-08-07"), day("2026-08-08")];
+
+describe("currentDayIndex", () => {
+  it("finds the exact day when today is in range", () => {
+    expect(currentDayIndex(days, "2026-08-06")).toBe(1);
+  });
+
+  it("defaults to the first day when today is before the schedule starts", () => {
+    expect(currentDayIndex(days, "2026-07-30")).toBe(0);
+  });
+
+  it("defaults to the last day when today is after the schedule ends", () => {
+    expect(currentDayIndex(days, "2026-08-20")).toBe(days.length - 1);
+  });
+
+  it("lands on the closest earlier day for a gap day inside the range", () => {
+    const withGap = [day("2026-08-05"), day("2026-08-08")]; // 08-06/07 missing
+    expect(currentDayIndex(withGap, "2026-08-07")).toBe(0);
+  });
+
+  it("is -1 for an empty schedule", () => {
+    expect(currentDayIndex([], "2026-08-06")).toBe(-1);
   });
 });

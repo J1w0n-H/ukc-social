@@ -33,3 +33,19 @@ export function conferenceDayStatus(
   if (day > totalDays) return { kind: "after" };
   return { kind: "during", day, totalDays };
 }
+
+// "Day 2 of 4 · UKC 2026" / "D-3 to UKC 2026" / "UKC 2026 has wrapped".
+// null for "no-conference" — callers decide their own fallback (Home's
+// header falls back to a plain date; the global top bar just hides itself).
+export function formatConferenceDay(status: ConferenceDayStatus, conferenceName: string): string | null {
+  switch (status.kind) {
+    case "no-conference":
+      return null;
+    case "before":
+      return `D-${status.daysUntil} to ${conferenceName}`;
+    case "during":
+      return `Day ${status.day} of ${status.totalDays} · ${conferenceName}`;
+    case "after":
+      return `${conferenceName} has wrapped`;
+  }
+}

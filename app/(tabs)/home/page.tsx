@@ -2,8 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
-import { getConference, type Conference } from "@/lib/conference";
-import { conferenceDayStatus } from "@/lib/conferenceDay";
+import { getConference } from "@/lib/conference";
 import Wordmark from "@/components/Wordmark";
 
 const HOUR = 3600_000;
@@ -14,36 +13,6 @@ const fmtTime = (timezone: string) =>
     minute: "2-digit",
     timeZone: timezone,
   });
-const fmtDate = (timezone: string) =>
-  new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    timeZone: timezone,
-  });
-
-// "Day 2 of 4 · UKC 2026" instead of a plain date — says where you are in
-// the event, not just what today's date is. Falls back to the date if no
-// conference is registered yet (conferenceDayStatus can't compute a day
-// count without its start/end dates).
-function dayHeaderLabel(
-  conference: Conference | null,
-  now: number,
-  dateFmt: Intl.DateTimeFormat,
-): string {
-  const status = conferenceDayStatus(conference, new Date(now).toISOString());
-  const name = conference?.name ?? "the conference";
-  switch (status.kind) {
-    case "no-conference":
-      return dateFmt.format(new Date(now));
-    case "before":
-      return `D-${status.daysUntil} to ${name}`;
-    case "during":
-      return `Day ${status.day} of ${status.totalDays} · ${name}`;
-    case "after":
-      return `${name} has wrapped`;
-  }
-}
 
 const ms = (s: string) => new Date(s).getTime();
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -81,7 +50,6 @@ export default async function HomePage() {
   if (user.is_anonymous) return <GuestHomeSection conferenceName={conference?.name} />;
   const now = Date.now();
   const timeFmt = fmtTime(conference?.timezone ?? "America/New_York");
-  const dateFmt = fmtDate(conference?.timezone ?? "America/New_York");
 
   const { data: prof } = await supabase
     .from("profiles")
@@ -203,9 +171,6 @@ export default async function HomePage() {
     <section style={{ padding: "24px 20px" }}>
       <header style={{ marginBottom: 24 }}>
         <Wordmark size="sm" />
-        <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 6 }}>
-          {dayHeaderLabel(conference, now, dateFmt)}
-        </div>
       </header>
 
       {nextGroup ? (

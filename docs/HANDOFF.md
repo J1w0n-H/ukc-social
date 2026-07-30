@@ -1,6 +1,46 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-30 (홈 tab: admin-editable announcement + real schedule, steps 2-4 of 4)_
+_Last updated: 2026-07-30 (Conference-day status moved app-wide; 홈's schedule is now a day pager with a live highlight)_
+
+### Update — 2026-07-30 Conference-day status app-wide; 홈's schedule is now a day-by-day pager
+
+Two follow-up requests after the schedule/announcement work landed: (1) the
+"Day 2 of 4 · UKC 2026" status that was only in 친구's header should show
+above every tab, not just one; (2) 홈's schedule should default to *today's*
+day with prev/next paging, not a long stacked list of every day, and
+whichever slot is happening right now should be visually highlighted.
+
+- **`lib/conferenceDay.ts`**: new `formatConferenceDay(status, name)` —
+  pulled the `before`/`during`/`after` → copy switch out of 친구's page into
+  a shared, tested export (`null` for `no-conference`, so each caller picks
+  its own fallback). 4 new tests.
+- **`app/(tabs)/layout.tsx`**: now fetches the conference and renders a
+  sticky `.day-status-bar` above `{children}` — shown on every tab (홈,
+  친구, 채팅, 매칭, 마이페이지), not just one. Hidden entirely when no
+  conference is registered (`formatConferenceDay` returns `null`) rather
+  than falling back to a bare date, since a date on every single page isn't
+  what was asked for.
+- **`app/(tabs)/home/page.tsx`**: removed its own now-duplicate day label
+  from the header (`dayHeaderLabel` deleted along with the now-unused
+  `fmtDate`/`Conference` import) — 친구's header is just the wordmark again,
+  the status lives in the shared bar above it.
+- **`lib/schedule.ts`**: new `currentDayIndex(days, todayDate)` — which day
+  홈's pager should open on: the exact match if today's in range, day 1 if
+  today is before the schedule starts, the last day if today is after it
+  ends (a gap day inside the range lands on the closest earlier day). 5 new
+  tests.
+- **`components/ScheduleDayView.tsx`** (new, client): replaces the old
+  stacked-all-days view. Prev/next buttons page one day at a time; a "Today"
+  tag shows on the actual current day (by date match, independent of which
+  day is currently being viewed); the slot covering the current instant
+  (`now >= starts_at && now < ends_at`) gets an accent background + bold
+  text, but only when the viewed day *is* today — paging to another day
+  never shows a stray highlight.
+- **`app/(tabs)/board/page.tsx`**: computes `todayDate` (in the conference's
+  timezone) and `initialIndex` server-side via `currentDayIndex`, passes
+  both plus `nowIso` into `ScheduleDayView`.
+
+Test count: 111 → 120.
 
 ### Update — 2026-07-30 홈 tab steps 2-4: admin inputs + the real UKC schedule
 
