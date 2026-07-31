@@ -89,31 +89,31 @@ flowchart TD
 
     HOME -->|"밥약 / 라이드 배너"| MATCH
     HOME -->|"참가자 배너"| PEOPLE
-    HOME -->|"내 테이블 카드"| GCHAT
-    CHAT -->|"스레드 선택"| GCHAT
+    HOME -->|"테이블 카드의 이름"| REVEAL
+    HOME -->|"테이블 카드의 Chat"| GCHAT
+    CHAT -->|"테이블 스레드"| GCHAT
+    CHAT -->|"라이드 스레드"| RCHAT
     MATCH -->|"Meals → Going → 채팅 열기"| GCHAT
     MATCH -->|"Rides → 매칭된 카드"| RCHAT
     ME -->|"내 테이블"| REVEAL
     GCHAT -->|"헤더의 테이블 이름"| REVEAL
     REVEAL -->|"채팅 열기"| GCHAT
+    RCHAT -->|"See ride details"| MATCH
     ADMIN -->|"run matching 이 생성"| REVEAL
-    BELL -->|table_revealed| GCHAT
-    BELL -->|new_message| GCHAT
+    BELL -->|table_revealed| REVEAL
+    BELL -->|"new_message (meal)"| GCHAT
+    BELL -->|"new_message (ride)"| RCHAT
     BELL -->|ride_matched| MATCH
     BELL -->|announcement| SCHED
 
-    CHAT -.->|"라이드 스레드가 목록에 없음"| RCHAT
-    BELL -.->|"공개 화면을 건너뛰고 바로 채팅으로"| REVEAL
     PEOPLE -.->|"탭 바에 없음, 홈 탭 배너로만 진입"| HOME
 
     classDef ok fill:#121C29,stroke:#4FD1E8,stroke-width:1.5px,color:#F2F6FA
-    classDef gapnode fill:#1C1420,stroke:#E8788A,stroke-width:1.5px,color:#F2F6FA
     classDef sys fill:#0A121C,stroke:#5C7086,color:#8CA0B8
-    class SCHED,HOME,CHAT,MATCH,ME,PEOPLE,REVEAL,GCHAT,ADMIN ok
-    class RCHAT gapnode
+    class SCHED,HOME,CHAT,MATCH,ME,PEOPLE,REVEAL,GCHAT,RCHAT,ADMIN ok
     class BELL sys
 
-    linkStyle 14,15,16 stroke:#E8788A,color:#E8788A
+    linkStyle 18 stroke:#E8788A,color:#E8788A
 ```
 
 ### Where each screen can take you
@@ -122,29 +122,36 @@ flowchart TD
 |---|---|---|
 | 일정 `/schedule` | 없음. 공지와 일정을 읽기만 함 | 읽기 전용으로 의도된 화면 |
 | 홈 `/home` | 매칭, 참가자, 내 테이블 채팅 | 정상 |
-| 채팅 `/chat` | 테이블 채팅 | 라이드 채팅 누락 |
-| 매칭 `/matching` | 테이블 채팅, 라이드 채팅 | 정상 |
+| 채팅 `/chat` | 테이블 채팅, 라이드 채팅 | 정상 |
+| 매칭 `/matching` | 테이블 채팅, 라이드 채팅 | `?tab=rides`로 라이드 바로 열기 |
 | 마이페이지 `/me` | 테이블 공개 화면, 로그인 | 정상 |
-| 테이블 공개 `/groups/[id]` | 테이블 채팅 | 진입 경로가 2개뿐 |
+| 테이블 공개 `/groups/[id]` | 테이블 채팅 | 홈, 마이페이지, 채팅 헤더, 알림 |
 | 테이블 채팅 | 테이블 공개 화면 | 정상 |
-| 라이드 채팅 | 없음 | 나가는 링크 없음 |
+| 라이드 채팅 | 매칭 (Rides) | 정상 |
 
 ### 아직 연결되지 않은 곳
 
-1. **채팅 탭에 라이드 스레드가 안 나옵니다.** 탭 설명은 "Every table and ride you're
-   part of"인데, 목록은 `group_members` + `channel_type = 'meal'`만 조회합니다. 라이드
-   채팅은 매칭 탭의 라이드 카드에서만 들어갈 수 있습니다. `docs/HANDOFF.md`에 이미
-   기록돼 있는 항목입니다.
-2. **테이블 공개 화면이 거의 고아 상태입니다.** 매칭 결과, 아이스브레이커 질문, 멤버
-   카드가 있는 화면인데 들어가는 길이 마이페이지와 채팅 헤더 두 곳뿐입니다. "테이블이
-   정해졌어요" 알림조차 이 화면을 건너뛰고 채팅으로 바로 갑니다.
-3. **참가자 목록이 탭 바에 없습니다.** 홈 탭의 배너 하나로만 들어갈 수 있습니다.
+1. **참가자 목록이 탭 바에 없습니다.** 홈 탭의 배너 하나로만 들어갈 수 있습니다.
    탭 다섯 자리가 모두 차 있어서 의도적으로 둔 상태입니다.
-4. **라이드 채팅에서 나가는 링크가 없습니다.** 테이블 채팅에는 헤더에 공개 화면으로
-   돌아가는 링크가 있지만, 라이드 채팅에는 대응되는 링크가 없습니다.
-5. **홈에 라이드 상태가 없습니다.** 항공편을 올리기 전에는 안내 배너가 뜨지만, 올리고
+2. **홈에 라이드 상태가 없습니다.** 항공편을 올리기 전에는 안내 배너가 뜨지만, 올리고
    나면 그 줄이 사라지고 대신 들어오는 것이 없습니다. 매칭된 풀도 픽업 시간도 홈에서는
    보이지 않습니다.
+3. **라이드 스레드에는 안 읽은 개수가 안 붙습니다.** `message_reads.group_id`가
+   `references groups`라서 풀 id로는 읽음 표시를 넣을 수 없습니다. 스레드 자체는
+   채팅 탭에 나오지만, 배지를 붙이려면 그 테이블을 `(channel_type, channel_id)`로
+   넓히는 마이그레이션이 필요합니다.
+
+### 정리된 것 (2026-07-31)
+
+- 채팅 탭이 라이드 스레드까지 함께 보여줍니다. 전에는 `channel_type = 'meal'`만
+  조회해서 라이드 대화는 매칭 탭에서만 들어갈 수 있었습니다.
+- 테이블 공개 화면으로 들어가는 길이 늘었습니다. "테이블이 정해졌어요" 알림이 채팅을
+  건너뛰지 않고 이 화면으로 오고, 홈의 테이블 카드 이름도 여기로 연결됩니다. 누구와
+  왜 묶였는지 보고 나서 대화를 시작하는 순서가 됩니다.
+- 라이드 채팅에서 나가는 길이 생겼습니다. 로스터 시트의 링크가 매칭 탭의 Rides로
+  갑니다 (`/matching?tab=rides`).
+- 라이드 새 메시지 알림이 목록이 아니라 그 스레드를 엽니다.
+- 진입점이 하나가 됐습니다. `/`도 로그인 후에도 `/home`으로 갑니다.
 
 ---
 

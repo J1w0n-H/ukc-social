@@ -10,14 +10,19 @@ const dtf = new Intl.DateTimeFormat("en-US", {
 });
 
 type Row = {
-  groupId: string;
+  key: string;
+  href: string;
   name: string;
   lastBody: string;
   lastAt: string | null;
-  unread: number;
+  // null means "this thread can't track reads yet", which is not the same as 0.
+  // Only tables have a message_reads row; see the note on the ride rows below.
+  unread: number | null;
 };
 
 type GroupRef = { id: string; name: string };
+type PoolRef = { id: string; direction: "arrival" | "departure" };
+type MessageRow = { channel_id: string; body: string; created_at: string };
 
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
@@ -35,6 +40,20 @@ export default async function ChatIndexPage() {
     .filter((g): g is GroupRef => !!g);
   const groupIds = groups.map((g) => g.id);
 
+  // Ride threads belong in this list too. The page promises "every table and
+  // ride you're part of" but only ever queried tables, so a ride conversation
+  // was reachable from the Rides segment of 매칭 and nowhere else.
+  const { data: memberRows } = await supabase
+    .from("ride_members")
+    .select("pool_id")
+    .eq("user_id", user.id);
+  const poolIds = (memberRows ?? []).map((r) => r.pool_id as string);
+
+  const { data: poolRows } = poolIds.length
+    ? await supabase.from("ride_pools").select("id, direction").in("id", poolIds)
+    : { data: [] as PoolRef[] };
+  const pools = (poolRows ?? []) as PoolRef[];
+
   const { data: reads } = groupIds.length
     ? await supabase
         .from("message_reads")
@@ -44,32 +63,67 @@ export default async function ChatIndexPage() {
     : { data: [] as { group_id: string; last_read_at: string }[] };
   const lastReadByGroup = new Map((reads ?? []).map((r) => [r.group_id, r.last_read_at]));
 
-  const { data: messages } = groupIds.length
-    ? await supabase
-        .from("messages")
-        .select("channel_id, body, created_at")
-        .eq("channel_type", "meal")
-        .in("channel_id", groupIds)
-        .order("created_at", { ascending: true })
-    : { data: [] as { channel_id: string; body: string; created_at: string }[] };
+  // Two queries rather than one over both channel types: messages.channel_id is
+  // a bare uuid with no foreign key, so a group id and a pool id are
+  // indistinguishable unless channel_type is part of the filter.
+  const [mealRes, rideRes] = await Promise.all([
+    groupIds.length
+      ? supabase
+          .from("messages")
+          .select("channel_id, body, created_at")
+          .eq("channel_type", "meal")
+          .in("channel_id", groupIds)
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] as MessageRow[] }),
+    poolIds.length
+      ? supabase
+          .from("messages")
+          .select("channel_id, body, created_at")
+          .eq("channel_type", "ride")
+          .in("channel_id", poolIds)
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] as MessageRow[] }),
+  ]);
 
-  const rows: Row[] = groups
-    .map((g) => {
-      const msgs = (messages ?? []).filter((m) => m.channel_id === g.id);
-      const last = msgs[msgs.length - 1];
-      const lastReadAt = lastReadByGroup.get(g.id);
-      const unread = lastReadAt
+  const tableRows: Row[] = groups.map((g) => {
+    const msgs = (mealRes.data ?? []).filter((m) => m.channel_id === g.id);
+    const last = msgs[msgs.length - 1];
+    const lastReadAt = lastReadByGroup.get(g.id);
+    return {
+      key: `meal:${g.id}`,
+      href: `/groups/${g.id}/chat`,
+      name: g.name,
+      lastBody: last?.body ?? "No messages yet.",
+      lastAt: last?.created_at ?? null,
+      unread: lastReadAt
         ? msgs.filter((m) => new Date(m.created_at).getTime() > new Date(lastReadAt).getTime()).length
-        : msgs.length;
-      return {
-        groupId: g.id,
-        name: g.name,
-        lastBody: last?.body ?? "No messages yet.",
-        lastAt: last?.created_at ?? null,
-        unread,
-      };
-    })
-    .sort((a, b) => new Date(b.lastAt ?? 0).getTime() - new Date(a.lastAt ?? 0).getTime());
+        : msgs.length,
+    };
+  });
+
+  // Ride rows carry no unread count. message_reads.group_id is declared
+  // `references groups`, so a read marker keyed by a pool id fails the foreign
+  // key. A real badge for rides needs a migration widening that table to
+  // (channel_type, channel_id). Listing the thread does not, and the thread
+  // being unreachable was the actual problem.
+  const rideRows: Row[] = pools.map((p) => {
+    const msgs = (rideRes.data ?? []).filter((m) => m.channel_id === p.id);
+    const last = msgs[msgs.length - 1];
+    return {
+      key: `ride:${p.id}`,
+      href: `/rides/${p.id}/chat`,
+      name: p.direction === "arrival" ? "Arrival ride" : "Departure ride",
+      lastBody: last?.body ?? "No messages yet.",
+      lastAt: last?.created_at ?? null,
+      unread: null,
+    };
+  });
+
+  const rows = [...tableRows, ...rideRows].sort(
+    (a, b) =>
+      new Date(b.lastAt ?? 0).getTime() - new Date(a.lastAt ?? 0).getTime() ||
+      a.name.localeCompare(b.name),
+  );
 
   return (
     <section style={{ padding: "24px 20px" }}>
@@ -87,8 +141,8 @@ export default async function ChatIndexPage() {
         <div style={{ marginTop: 12, borderTop: "1px solid var(--line)" }}>
           {rows.map((r) => (
             <Link
-              key={r.groupId}
-              href={`/groups/${r.groupId}/chat`}
+              key={r.key}
+              href={r.href}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -119,7 +173,7 @@ export default async function ChatIndexPage() {
                 {r.lastAt && (
                   <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{dtf.format(new Date(r.lastAt))}</div>
                 )}
-                {r.unread > 0 && (
+                {r.unread !== null && r.unread > 0 && (
                   <span
                     style={{
                       display: "inline-block",

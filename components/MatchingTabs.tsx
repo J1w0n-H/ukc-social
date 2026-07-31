@@ -9,12 +9,17 @@ export default function MatchingTabs({
   kicker,
   meals,
   rides,
+  initialTab = "meals",
 }: {
   kicker: string;
   meals: ReactNode;
   rides: ReactNode;
+  initialTab?: "meals" | "rides";
 }) {
-  const [tab, setTab] = useState<"meals" | "rides">("meals");
+  // `initialTab` comes from ?tab= so anything ride-shaped (a ride notification,
+  // the exit link out of a ride chat) can land you on Rides instead of dropping
+  // you on Meals and making you find the segment yourself.
+  const [tab, setTab] = useState<"meals" | "rides">(initialTab);
 
   return (
     <section style={{ padding: "24px 20px" }}>

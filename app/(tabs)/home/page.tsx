@@ -326,7 +326,12 @@ function GroupmatesSection({
                 {t.groupId === nextGroupId && (
                   <div className="table-card__next">{dayOf ? "Tonight" : "Next up"}</div>
                 )}
-                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{t.tableName}</div>
+                {/* The name opens the reveal (who's at the table and why it was
+                    put together); the button on the right goes straight to the
+                    thread. Two different intentions, so two destinations. */}
+                <Link href={`/groups/${t.groupId}`} className="table-card__name">
+                  {t.tableName}
+                </Link>
                 <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 2 }}>
                   {t.slot.title} · {dfmt.format(new Date(t.slot.starts_at))} ·{" "}
                   {fmt.format(new Date(t.slot.starts_at))}
@@ -599,6 +604,13 @@ function LinkStyles() {
         align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
+      }
+      .table-card__name {
+        display: inline-block;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--ink);
+        text-decoration: none;
       }
       .table-card__chat {
         flex-shrink: 0;
