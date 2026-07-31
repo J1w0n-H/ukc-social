@@ -8,10 +8,12 @@
 
 export type Direction = "arrival" | "departure";
 
-// Matching (Board.tsx) only ever buckets by time — flight number/airline/city
-// were display-only and never used for it, so posting a flight is just
-// "when." (Was a fuller form at /rides/add; removed in favor of collecting
-// both directions at onboarding + editing on Me.)
+// Matching (lib/rideMatch.ts) only ever goes by time — flight number/airline/
+// city were display-only in the old browse-and-join board and never used for
+// it, so posting a flight is just "when" (+ a search window, collected
+// alongside this — see app/actions/flights.ts's submitFlight). Was a fuller
+// form at /rides/add; removed in favor of collecting both directions at
+// onboarding + editing on Me.
 export type FlightInput = {
   direction: Direction;
   localDateTime: string; // "2026-08-04T15:30" in event-airport wall-clock

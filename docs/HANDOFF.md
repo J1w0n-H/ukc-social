@@ -1,6 +1,72 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-30 (All 17 migrations confirmed applied to the live Supabase project)_
+_Last updated: 2026-07-30 (Rides now real-matched like meals, not browse-and-join)_
+
+### Update — 2026-07-30 Rides: real matching, not browse-and-join
+
+Rides never actually matched anyone — `submitFlight` gave each poster their
+own personal `ride_pools` row (one pool per flight, "Share" = join a
+specific stranger's row you picked off a list), no algorithm at all. Rebuilt
+it to work like meals: post a flight → search for a compatible group →
+confirm join or start your own → get a real group chat. Decided explicitly
+(asked first): **matching happens immediately** when a flight is submitted,
+not batched by an admin/cron the way meal slots are — rides don't have a
+shared deadline the way a dinner slot does, each person's flight time is
+different, so there's nothing sensible to batch until.
+
+- **Migration `0018_ride_matching.sql`**: `flights.window_hours` (search
+  window in hours, asked for at submit time). Dropped `ride_pools.
+  anchor_flight_id` (the old 1:1-with-one-flight concept) and added `ride_
+  pools.airport`. Added missing `update`/`delete` RLS policies on
+  `ride_pools` — 0011 only ever granted `insert`, so a pool's pickup time
+  couldn't be recentered by anyone. **Not yet applied to the live project.**
+- **`lib/rideMatch.ts`** (new, pure + tested, 13 tests): `findBestPool` —
+  closest pool within the poster's window that isn't full, or `null`.
+  `averagePickupAt` — a pool's pickup time re-centers as the plain average
+  of every member's own flight time on join/leave, rather than staying
+  pinned to whoever created it (the "재조정"/re-adjust half of the ask).
+  `canCancelFlight` — true any time before the flight's own calendar day
+  starts (in the conference's timezone), false from that midnight on — "취소는
+  전날밤까지만."
+- **`app/actions/flights.ts`** rewritten: `submitFlight` now saves the
+  flight and *proposes* a match (doesn't auto-join) — returns a discriminated
+  `no_match` / `already_matched` / `proposal` result. `joinProposedPool`
+  joins + recenters + notifies (`ride_matched`, reused). `startOwnPool`
+  creates a fresh pool from the poster's own flight when they decline (or
+  nothing matched). `cancelFlight` replaces the old `deleteFlight` —
+  deadline-gated, leaves the pool and recenters/clears it for whoever's left.
+  `joinRide` (the old "join this specific flightId" action) is gone —
+  there's no more browsing UI to call it from.
+- **`components/RideMatchSheet.tsx`** (new): the confirm step — "A ride is
+  leaving around {time} with {N} people — join, or start your own instead,"
+  same propose-then-confirm shape as `JoinSheet`'s schedule-conflict
+  override. `components/ProfileEditor.tsx`: added the search-window input,
+  wired the sheet in (queued if both arrival and departure each turned up a
+  proposal), swapped `deleteFlight` → `cancelFlight`.
+- **Rides tab rewritten**: `app/(tabs)/rides/Board.tsx` and `RiderCard.tsx`
+  (the old "browse everyone's flight, click Share" list) deleted. New
+  `RidePoolCard.tsx` — one card per direction showing *your* matched
+  pool (time, members, "Open chat," a deadline-gated inline "Cancel"
+  confirm), or a prompt to post a flight if you haven't — same "you see your
+  own table, not everyone's" shape meals already have on Home.
+- **`app/rides/[id]/chat/page.tsx`** (new): a real ride group chat, reusing
+  `components/Chat.tsx` (already supported `channelType="ride"` at the
+  schema/RLS level — migration 0001 — just never had a page). Made three
+  small copy/link spots in `Chat.tsx` conditional on `channelType` ("Your
+  table" → "Your ride," the meal-only "See full profiles" link hidden for
+  rides — there's no ride equivalent of `/groups/[id]`).
+- **Known scope cut**: `/chat`'s unread-badge index (`message_reads`) stays
+  meal-only — its `group_id` column has a hard FK to `groups`, not a generic
+  channel reference, so ride chats don't get an unread count there yet.
+  Ride chat itself works fine (send/receive/roster), just isn't wired into
+  that particular badge. Widening `message_reads` to cover both was judged
+  out of scope for this pass.
+- **`lib/flights.ts`** (AeroDataBox live-arrivals feed + `bucketIntoPools`)
+  was already dead code before this change — confirmed via grep, no
+  importers outside its own test file, leftover from an earlier design
+  direction. Left alone, not part of this rewrite.
+
+Test count: 120 → 133.
 
 ### Update — 2026-07-30 All migrations applied — verified live, not just deployed
 
@@ -553,12 +619,15 @@ of this file. Items resolved since the last pass (migration `0008`, the original
 Vercel deploy, rides/polish) have been removed rather than left stale; see the dated
 Updates above for what actually closed them out._
 
-**All 17 migrations are applied and confirmed live** as of 2026-07-30 (`0011`,
-`0013`, `0014`, `0017` were the last four — verified directly: `ride_members`,
-`message_reads`, `notifications` all resolve, and the `type` check constraint
-accepts `new_message`/`announcement`). Ride "Share", `/chat`'s unread badges,
-and every notification trigger (table assignment, ride match, new message,
-new/changed announcement) are live for real now, not just deployed code.
+**Migrations `0001`–`0017` are applied and confirmed live** as of 2026-07-30
+(`0011`, `0013`, `0014`, `0017` were the last four before this — verified
+directly: `ride_members`, `message_reads`, `notifications` all resolve, and
+the `type` check constraint accepts `new_message`/`announcement`).
+**`0018_ride_matching.sql` is new and not yet applied** — needed for the
+rides-matching rewrite above to work live (`flights.window_hours`,
+`ride_pools.airport`, dropped `anchor_flight_id`, added `ride_pools`
+update/delete RLS). Until it's applied, `submitFlight`/`joinProposedPool`/
+`startOwnPool`/`cancelFlight` will error against the live schema.
 
 The conference/DB is also live-configured: **UKC 2026** is registered (Aug
 5–8, ChampionsGate FL, timezone America/New_York, airport MCO, auto-matching

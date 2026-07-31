@@ -58,10 +58,11 @@ export default async function MePage() {
   // flights table may not exist yet on a fresh DB — degrade to no flights set.
   const { data: flightRows } = await supabase
     .from("flights")
-    .select("direction, scheduled_at")
+    .select("direction, scheduled_at, window_hours")
     .eq("user_id", user.id);
   const arrivalFlight = (flightRows ?? []).find((f) => f.direction === "arrival");
   const departureFlight = (flightRows ?? []).find((f) => f.direction === "departure");
+  const windowHours = (arrivalFlight?.window_hours ?? departureFlight?.window_hours ?? 2) as number;
   const timezone = conference?.timezone ?? "America/New_York";
   // Conference dates as a starting point when nothing's saved yet — a blank
   // datetime-local input means setting year/month/day/hour/minute from
@@ -87,6 +88,8 @@ export default async function MePage() {
           departure: departureFlight ? toLocalInput(departureFlight.scheduled_at, timezone) : "",
         }}
         flightDefaults={flightDefaults}
+        initialWindowHours={windowHours}
+        timezone={timezone}
       />
 
       <div style={{ marginTop: 36 }}>

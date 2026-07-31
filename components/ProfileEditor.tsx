@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { downscale } from "@/lib/avatar";
 import { saveProfile } from "@/app/actions/profile";
-import { submitFlight, deleteFlight } from "@/app/actions/flights";
+import { submitFlight, cancelFlight, type SubmitFlightResult } from "@/app/actions/flights";
+import RideMatchSheet, { type RideProposal } from "@/components/RideMatchSheet";
 
 type Profile = {
   name: string;
@@ -45,11 +46,15 @@ export default function ProfileEditor({
   initial,
   initialFlight,
   flightDefaults,
+  initialWindowHours,
+  timezone = "America/New_York",
 }: {
   userId: string;
   initial: Profile;
   initialFlight: Flight;
   flightDefaults: Flight;
+  initialWindowHours: number;
+  timezone?: string;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -59,11 +64,13 @@ export default function ProfileEditor({
     arrival: initialFlight.arrival || flightDefaults.arrival,
     departure: initialFlight.departure || flightDefaults.departure,
   });
+  const [windowHours, setWindowHours] = useState(initialWindowHours);
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(false);
   const [upload, setUpload] = useState<"idle" | "uploading" | "error">("idle");
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [proposals, setProposals] = useState<RideProposal[]>([]);
 
   const set = (p: Partial<Profile>) => setForm((f) => ({ ...f, ...p }));
   const setF = (p: Partial<Flight>) => setFlight((f) => ({ ...f, ...p }));
@@ -107,6 +114,7 @@ export default function ProfileEditor({
     }
     setError("");
     setBusy(true);
+    const noopResult: SubmitFlightResult = { ok: true, status: "no_match" };
     const [profileRes, arrivalRes, departureRes] = await Promise.all([
       saveProfile({
         name: form.name.trim(),
@@ -120,23 +128,38 @@ export default function ProfileEditor({
         photo_url: form.photo_url ?? undefined,
       }),
       flight.arrival
-        ? submitFlight({ direction: "arrival", localDateTime: flight.arrival })
+        ? submitFlight({ direction: "arrival", localDateTime: flight.arrival, windowHours })
         : initialFlight.arrival
-          ? deleteFlight("arrival")
-          : Promise.resolve({ ok: true as const, error: undefined as string | undefined }),
+          ? cancelFlight("arrival")
+          : Promise.resolve(noopResult),
       flight.departure
-        ? submitFlight({ direction: "departure", localDateTime: flight.departure })
+        ? submitFlight({ direction: "departure", localDateTime: flight.departure, windowHours })
         : initialFlight.departure
-          ? deleteFlight("departure")
-          : Promise.resolve({ ok: true as const, error: undefined as string | undefined }),
+          ? cancelFlight("departure")
+          : Promise.resolve(noopResult),
     ]);
     setBusy(false);
     if (profileRes.ok && arrivalRes.ok && departureRes.ok) {
       setEditing(false);
       flash("Saved");
       router.refresh();
+      const newProposals = [arrivalRes, departureRes].filter(
+        (r): r is Extract<SubmitFlightResult, { status: "proposal" }> =>
+          "status" in r && r.status === "proposal",
+      );
+      if (newProposals.length) {
+        setProposals(
+          newProposals.map((p) => ({
+            direction: p.direction,
+            poolId: p.poolId,
+            pickupAt: p.pickupAt,
+            memberCount: p.memberCount,
+          })),
+        );
+      }
     } else {
-      setError(profileRes.error ?? arrivalRes.error ?? departureRes.error ?? "Couldn't save. Try again.");
+      const flightError = !arrivalRes.ok ? arrivalRes.error : !departureRes.ok ? departureRes.error : undefined;
+      setError(profileRes.error ?? flightError ?? "Couldn't save. Try again.");
     }
   }
 
@@ -214,6 +237,13 @@ export default function ProfileEditor({
           <div className="pe-toast" role="status">
             {toast}
           </div>
+        )}
+        {proposals[0] && (
+          <RideMatchSheet
+            proposal={proposals[0]}
+            timezone={timezone}
+            onDone={() => setProposals((p) => p.slice(1))}
+          />
         )}
         <PeStyles />
       </div>
@@ -358,6 +388,26 @@ export default function ProfileEditor({
         value={flight.departure}
         onChange={(e) => setF({ departure: e.target.value })}
       />
+      {(flight.arrival || flight.departure) && (
+        <>
+          <label className="ob-label" htmlFor="pe-window">
+            Search window (hours before/after)
+          </label>
+          <input
+            id="pe-window"
+            type="number"
+            min={0.5}
+            step={0.5}
+            className="ob-field"
+            style={{ maxWidth: 120 }}
+            value={windowHours}
+            onChange={(e) => setWindowHours(Number(e.target.value))}
+          />
+          <p style={{ fontSize: 12, color: "var(--ink-2)", marginTop: -2 }}>
+            e.g. 2 = we&apos;ll look for a ride leaving within 2 hours of your time.
+          </p>
+        </>
+      )}
 
       {error && <p style={{ color: "var(--danger)", fontSize: 14, marginTop: 16 }}>{error}</p>}
 
@@ -392,6 +442,13 @@ export default function ProfileEditor({
         <div className="pe-toast" role="status">
           {toast}
         </div>
+      )}
+      {proposals[0] && (
+        <RideMatchSheet
+          proposal={proposals[0]}
+          timezone={timezone}
+          onDone={() => setProposals((p) => p.slice(1))}
+        />
       )}
       <PeStyles />
     </div>

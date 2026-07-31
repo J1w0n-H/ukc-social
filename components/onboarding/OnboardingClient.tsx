@@ -100,11 +100,13 @@ export default function OnboardingClient({
     // was actually entered, and don't block finishing onboarding if it
     // fails (same non-fatal pattern as everything else here; editable
     // anytime on Me).
+    // Default search window here — onboarding doesn't have a field for it,
+    // matching is proposed (not auto-joined) whenever they next visit Me.
     if (data.flight.arrival) {
-      await submitFlight({ direction: "arrival", localDateTime: data.flight.arrival });
+      await submitFlight({ direction: "arrival", localDateTime: data.flight.arrival, windowHours: 2 });
     }
     if (data.flight.departure) {
-      await submitFlight({ direction: "departure", localDateTime: data.flight.departure });
+      await submitFlight({ direction: "departure", localDateTime: data.flight.departure, windowHours: 2 });
     }
     setBusy(false);
     if (!a.ok || !b.ok)

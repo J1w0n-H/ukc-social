@@ -320,7 +320,7 @@ export default function Chat({
           ref={headBtnRef}
           className="head-id"
           onClick={() => setRosterOpen(true)}
-          aria-label={`${members.length} people at your table — open roster`}
+          aria-label={`${members.length} people in your ${channelType === "ride" ? "ride" : "table"} — open roster`}
         >
           <span className="stack">
             {stack.map((m) => (
@@ -500,11 +500,11 @@ export default function Chat({
             className="sheet"
             role="dialog"
             aria-modal="true"
-            aria-label="Your table"
+            aria-label={channelType === "ride" ? "Your ride" : "Your table"}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="grabber" aria-hidden />
-            <div className="sheet-kicker">Your table</div>
+            <div className="sheet-kicker">{channelType === "ride" ? "Your ride" : "Your table"}</div>
             <h2 className="sheet-title">{groupName}</h2>
             <div className="roster">
               {members.map((m) => (
@@ -522,13 +522,15 @@ export default function Chat({
                 <span className="plan-line">{meetLine}</span>
               </div>
             )}
-            <Link
-              href={`/groups/${groupId}`}
-              className="sheet-link"
-              onClick={() => setRosterOpen(false)}
-            >
-              See full profiles ▸
-            </Link>
+            {channelType === "meal" && (
+              <Link
+                href={`/groups/${groupId}`}
+                className="sheet-link"
+                onClick={() => setRosterOpen(false)}
+              >
+                See full profiles ▸
+              </Link>
+            )}
             <button className="sheet-close" onClick={() => setRosterOpen(false)}>
               Close
             </button>
