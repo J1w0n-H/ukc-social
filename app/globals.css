@@ -182,8 +182,16 @@ h3 {
    noticeable going from onboarding (narrow, centered) into People (was
    uncapped). One shared cap here fixes every (tabs) page in one place —
    720px leaves room for People's desktop 3-column grid without being
-   edge-to-edge on a wide window. */
-.app-main { padding-bottom: 88px; max-width: 720px; margin: 0 auto; }
+   edge-to-edge on a wide window.
+
+   `width: 100%` is load-bearing, don't drop it. body is a column flexbox, and
+   an auto cross-axis margin on a flex item cancels the default stretch, so
+   `margin: 0 auto` alone left this sizing to its own widest child. The page
+   then got wider or narrower with the content: on 일정, paging from a day of
+   short titles to one with a 52-character title moved the whole layout.
+   width + max-width + auto margins is the combination that both fills the
+   viewport and still centers once the window passes 720px. */
+.app-main { padding-bottom: 88px; width: 100%; max-width: 720px; margin: 0 auto; }
 @media (min-width: 1024px) {
   .app-main { padding-bottom: 0; padding-left: 64px; }
 }
