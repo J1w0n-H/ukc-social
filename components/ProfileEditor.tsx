@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { downscale } from "@/lib/avatar";
 import { saveProfile } from "@/app/actions/profile";
-import { submitFlight, cancelFlight, type SubmitFlightResult } from "@/app/actions/flights";
+import { submitFlight, startOwnPool, cancelFlight, type SubmitFlightResult } from "@/app/actions/flights";
 import RideMatchSheet, { type RideProposal } from "@/components/RideMatchSheet";
 
 type Profile = {
@@ -142,6 +142,15 @@ export default function ProfileEditor({
     if (profileRes.ok && arrivalRes.ok && departureRes.ok) {
       setEditing(false);
       flash("Saved");
+
+      // No one to propose joining — open your own pool right away rather
+      // than leaving the flight saved with no pool at all (nothing else
+      // creates one otherwise).
+      const ownPoolCalls: Promise<unknown>[] = [];
+      if ("status" in arrivalRes && arrivalRes.status === "no_match") ownPoolCalls.push(startOwnPool("arrival"));
+      if ("status" in departureRes && departureRes.status === "no_match") ownPoolCalls.push(startOwnPool("departure"));
+      if (ownPoolCalls.length) await Promise.all(ownPoolCalls);
+
       router.refresh();
       const newProposals = [arrivalRes, departureRes].filter(
         (r): r is Extract<SubmitFlightResult, { status: "proposal" }> =>

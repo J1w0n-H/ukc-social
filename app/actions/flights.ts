@@ -7,6 +7,20 @@ import { findBestPool, averagePickupAt, canCancelFlight, type CandidatePool } fr
 import { type Direction, type FlightInput } from "@/lib/rides";
 
 type Result = { ok: boolean; error?: string };
+type Supa = Awaited<ReturnType<typeof requireUser>>["supabase"];
+
+// Is this user already in a pool for this direction? Guards startOwnPool/
+// joinProposedPool against creating a second pool alongside an existing
+// match (double-click, two tabs, a stale proposal after already matching
+// some other way) — submitFlight already checks this before proposing, but
+// the actions it proposes need their own guard too, not just the caller.
+async function findMyPoolId(supabase: Supa, userId: string, direction: Direction): Promise<string | null> {
+  const { data: myMembership } = await supabase.from("ride_members").select("pool_id").eq("user_id", userId);
+  const myPoolIds = (myMembership ?? []).map((m) => m.pool_id as string);
+  if (!myPoolIds.length) return null;
+  const { data: pools } = await supabase.from("ride_pools").select("id").eq("direction", direction).in("id", myPoolIds);
+  return pools?.[0]?.id ?? null;
+}
 
 export type SubmitFlightResult =
   | { ok: false; error: string }
@@ -49,17 +63,11 @@ export async function submitFlight(
 
   // Already matched for this direction? Don't re-propose — re-saving an
   // unchanged (or lightly edited) flight shouldn't re-prompt someone who's
-  // already sorted.
-  const { data: myMembership } = await supabase.from("ride_members").select("pool_id").eq("user_id", user.id);
-  const myPoolIds = (myMembership ?? []).map((m) => m.pool_id as string);
-  if (myPoolIds.length) {
-    const { data: already } = await supabase
-      .from("ride_pools")
-      .select("id")
-      .eq("direction", input.direction)
-      .in("id", myPoolIds)
-      .maybeSingle();
-    if (already) return { ok: true, status: "already_matched" };
+  // already sorted. (Editing to a meaningfully different time while already
+  // matched doesn't currently re-run matching or update the pool — flagged
+  // as a follow-up, not fixed here.)
+  if (await findMyPoolId(supabase, user.id, input.direction)) {
+    return { ok: true, status: "already_matched" };
   }
 
   const { data: pools } = await supabase
@@ -99,6 +107,8 @@ export async function submitFlight(
 // at their own flight time, ready for someone else's submitFlight to find.
 export async function startOwnPool(direction: Direction): Promise<Result> {
   const { user, supabase } = await requireUser();
+  if (await findMyPoolId(supabase, user.id, direction)) return { ok: true };
+
   const conference = await getConference(supabase);
   const airport = conference?.airport_code ?? "";
 
@@ -149,6 +159,9 @@ export async function joinProposedPool(poolId: string): Promise<Result & { full?
     .eq("direction", pool.direction)
     .maybeSingle();
   if (!flight) return { ok: false, error: "Post your flight first." };
+
+  const myExistingPoolId = await findMyPoolId(supabase, user.id, pool.direction as Direction);
+  if (myExistingPoolId) return { ok: myExistingPoolId === poolId };
 
   const { data: existing, error: countErr } = await supabase
     .from("ride_members")
