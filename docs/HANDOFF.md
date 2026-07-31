@@ -1,6 +1,56 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-30 (Rides now real-matched like meals, not browse-and-join)_
+_Last updated: 2026-07-31 (Ride-matching self-review: 2 bugs fixed, flight-time-change handling, dead code removed)_
+
+### Update — 2026-07-31 Self-review of the ride-matching rewrite
+
+Reviewed the previous day's ride-matching commit before moving on. Found one
+bug that broke the feature outright, one lower-probability correctness gap,
+and confirmed a chunk of pre-existing dead code was safe to delete.
+
+- 🐛 **Bug fixed — `no_match` never created a pool at all.** `submitFlight`'s
+  `no_match` result was never handled in `ProfileEditor.tsx` — only
+  `proposal` did anything. `startOwnPool()` was only reachable by declining
+  a proposal, so anyone with no one flying nearby yet (the common case: the
+  first person to post a flight) had their flight saved but no pool, no
+  chat — Rides showed "Setting up your ride…" forever. This broke the
+  "없으면 만들거나" half of the original ask. Fixed: `save()` now calls
+  `startOwnPool()` directly for any direction that came back `no_match`.
+- 🐛 **Bug fixed — no guard against a duplicate pool.** `startOwnPool`/
+  `joinProposedPool` didn't check whether the caller was already matched
+  for that direction before creating/joining a pool — only `submitFlight`
+  checked, before proposing. A double-click or two open tabs could leave
+  someone in two pools for one direction, which would then make
+  `submitFlight`'s own "am I already matched" lookup error out on "more
+  than one row." Fixed: extracted `findMyPoolId()`, used it to guard both.
+- **New: editing a matched flight to a real different time.** Previously
+  silently did nothing — the pool stayed pinned to the old time forever.
+  Decided (asked first): auto-leave the old pool (re-centering it for
+  whoever's left, or clearing it if empty) and search fresh, exactly like a
+  first-time submission. The *other* members get a new `ride_member_left`
+  notification (migration `0019`, widens the same check constraint `0017`
+  did). The leaver sees it too, via the save toast ("Saved — your old ride
+  group was notified you left"). Re-saving with an *unchanged* time still
+  short-circuits to `already_matched` — only a real time change triggers
+  this.
+- **Deleted `lib/flights.ts`, `lib/flights.test.ts`,
+  `data/example-arrivals-mco-2026-08-04.json`.** Confirmed zero importers
+  outside its own test (this was already flagged as dead in `README.md`
+  before today). This was the old AeroDataBox-live-arrivals-feed approach
+  to Rides, superseded by the self-reported-flight-time matching above.
+  `AERODATABOX_API_KEY` dropped from `.env.example` and the Vercel deploy
+  checklist — nothing reads it anymore.
+- **Deferred (not started):** re-evaluating whether an *already-matched*
+  flight's edit should also re-check the search window against the new
+  time before deciding to leave (right now, any literal time change
+  triggers a leave, even a 1-minute edit) — flagged, not built, matches the
+  "일단" framing this was asked for. Mentor/mentee matching
+  (`lib/mentorMatch.ts`, `/match-demo` — explicitly marked "NOT a shipped
+  user surface") also stays parked for later.
+
+Test count: 133 → 122 (net: -11 from deleting `lib/flights.test.ts`, no
+regression — the ride-matching test suite itself is unchanged and still
+passing).
 
 ### Update — 2026-07-30 Rides: real matching, not browse-and-join
 
@@ -623,11 +673,13 @@ Updates above for what actually closed them out._
 (`0011`, `0013`, `0014`, `0017` were the last four before this — verified
 directly: `ride_members`, `message_reads`, `notifications` all resolve, and
 the `type` check constraint accepts `new_message`/`announcement`).
-**`0018_ride_matching.sql` is new and not yet applied** — needed for the
-rides-matching rewrite above to work live (`flights.window_hours`,
-`ride_pools.airport`, dropped `anchor_flight_id`, added `ride_pools`
-update/delete RLS). Until it's applied, `submitFlight`/`joinProposedPool`/
-`startOwnPool`/`cancelFlight` will error against the live schema.
+**`0018_ride_matching.sql` and `0019_ride_member_left.sql` are new and not
+yet applied** — needed for the rides-matching rewrite above to work live
+(`flights.window_hours`, `ride_pools.airport`, dropped `anchor_flight_id`,
+added `ride_pools` update/delete RLS, and the `ride_member_left`
+notification type). Until they're applied, `submitFlight`/
+`joinProposedPool`/`startOwnPool`/`cancelFlight` will error against the
+live schema.
 
 The conference/DB is also live-configured: **UKC 2026** is registered (Aug
 5–8, ChampionsGate FL, timezone America/New_York, airport MCO, auto-matching
@@ -666,12 +718,12 @@ yet" TODO anymore — steps 1–4 don't need repeating for this project._
    `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_EMAIL`, `CRON_SECRET` (must match the bearer
    token Vercel Cron sends to `/api/cron/auto-match`), and optionally
    `ANTHROPIC_API_KEY` (AI matching rationale + flight-screenshot parsing; without it
-   both fall back to deterministic/manual paths), `GEMINI_API_KEY`, and
-   `AERODATABOX_API_KEY` (live airport arrivals on Rides — `lib/flights.ts` still
-   reads this; **corrects an earlier, wrong claim in this doc that it was dead** —
-   without it, Rides falls back to the bundled Aug-4 MCO example data). Values mirror
+   both fall back to deterministic/manual paths) and `GEMINI_API_KEY`. Values mirror
    `.env.local`. The service-role key is server-only — never expose it as
-   `NEXT_PUBLIC_*`.
+   `NEXT_PUBLIC_*`. (`AERODATABOX_API_KEY` used to be listed here for a live
+   airport-arrivals feed — `lib/flights.ts` was deleted 2026-07-31, never wired
+   into any page; Rides matches on self-reported flight times now, see the
+   rides-matching update above.)
 3. **Deploy**, note the assigned domain (e.g. `icebreaker.vercel.app`).
 4. **Point Supabase auth at the domain:** Supabase → Auth → URL Configuration →
    Site URL `https://<domain>`, and add redirect `https://<domain>/auth/callback`

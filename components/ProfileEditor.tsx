@@ -141,7 +141,10 @@ export default function ProfileEditor({
     setBusy(false);
     if (profileRes.ok && arrivalRes.ok && departureRes.ok) {
       setEditing(false);
-      flash("Saved");
+      const leftPreviousPool =
+        ("leftPreviousPool" in arrivalRes && arrivalRes.leftPreviousPool) ||
+        ("leftPreviousPool" in departureRes && departureRes.leftPreviousPool);
+      flash(leftPreviousPool ? "Saved — your old ride group was notified you left" : "Saved");
 
       // No one to propose joining — open your own pool right away rather
       // than leaving the flight saved with no pool at all (nothing else

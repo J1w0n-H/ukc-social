@@ -51,9 +51,10 @@ inputs), Inter display/body + Noto Sans KR fallback. Korean-safe throughout. Dev
 | `ADMIN_EMAIL` | The one email allowed to run matching at `/admin` |
 | `GEMINI_API_KEY` | Optional. Bespoke Claude/Gemini group names. Without it, the deterministic bank in `data/group-names.json` is used (this is already the default path — see `docs/group-naming-logic.md`) |
 
-> `AERODATABOX_API_KEY` and `lib/flights.ts`'s `fetchArrivals()`/`bucketIntoPools()` are no
-> longer wired into any page — Rides now runs on self-reported flights (`/rides/add`, with
-> optional Claude screenshot parsing) instead of a live arrivals feed. Candidate for cleanup.
+> `AERODATABOX_API_KEY` was for a live airport-arrivals feed (`lib/flights.ts`'s
+> `fetchArrivals()`/`bucketIntoPools()`) that was never wired into any page — removed. Rides
+> now matches on self-reported flight times (`Me` → post a flight → matched or grouped
+> immediately, see `lib/rideMatch.ts`), no external arrivals API involved.
 
 ## Database
 

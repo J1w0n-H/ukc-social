@@ -22,11 +22,48 @@ async function findMyPoolId(supabase: Supa, userId: string, direction: Direction
   return pools?.[0]?.id ?? null;
 }
 
+// Removes userId from poolId, re-centers the pool's pickup time on whoever's
+// left (or clears the pool out entirely if that was the last member), and
+// notifies the remaining members — shared by an explicit cancellation
+// (cancelFlight) and an automatic one (submitFlight, when an already-matched
+// flight's time actually changes).
+async function leavePool(supabase: Supa, userId: string, poolId: string): Promise<void> {
+  await supabase.from("ride_members").delete().eq("pool_id", poolId).eq("user_id", userId);
+  const { data: remaining } = await supabase.from("ride_members").select("user_id, flight_at").eq("pool_id", poolId);
+  if (remaining && remaining.length) {
+    await supabase
+      .from("ride_pools")
+      .update({ pickup_at: averagePickupAt(remaining.map((r) => r.flight_at as string)) })
+      .eq("id", poolId);
+    // The leaver isn't a recipient of their own departure, and the rest
+    // aren't the caller's own session, so this needs the service-role client.
+    await serviceClient()
+      .from("notifications")
+      .insert(
+        remaining.map((r) => ({
+          user_id: r.user_id as string,
+          type: "ride_member_left" as const,
+          payload: { pool_id: poolId },
+        })),
+      );
+  } else {
+    await supabase.from("ride_pools").delete().eq("id", poolId);
+  }
+}
+
 export type SubmitFlightResult =
   | { ok: false; error: string }
   | { ok: true; status: "already_matched" }
-  | { ok: true; status: "no_match" }
-  | { ok: true; status: "proposal"; direction: Direction; poolId: string; pickupAt: string; memberCount: number };
+  | { ok: true; status: "no_match"; leftPreviousPool?: boolean }
+  | {
+      ok: true;
+      status: "proposal";
+      direction: Direction;
+      poolId: string;
+      pickupAt: string;
+      memberCount: number;
+      leftPreviousPool?: boolean;
+    };
 
 // Saves the flight, then looks for (but does not join) a compatible ride
 // pool — same/direction+airport, has room, pickup time within the poster's
@@ -48,6 +85,16 @@ export async function submitFlight(
   if (isNaN(scheduledAt.getTime())) return { ok: false, error: "That time didn't parse." };
   const airport = conference?.airport_code ?? "";
 
+  // Read the flight as it stood *before* this save, so a real time change
+  // can be told apart from re-saving the same time (or just editing an
+  // unrelated profile field).
+  const { data: priorFlight } = await supabase
+    .from("flights")
+    .select("scheduled_at")
+    .eq("user_id", user.id)
+    .eq("direction", input.direction)
+    .maybeSingle();
+
   const { error } = await supabase.from("flights").upsert(
     {
       user_id: user.id,
@@ -61,13 +108,18 @@ export async function submitFlight(
   );
   if (error) return { ok: false, error: error.message };
 
-  // Already matched for this direction? Don't re-propose — re-saving an
-  // unchanged (or lightly edited) flight shouldn't re-prompt someone who's
-  // already sorted. (Editing to a meaningfully different time while already
-  // matched doesn't currently re-run matching or update the pool — flagged
-  // as a follow-up, not fixed here.)
-  if (await findMyPoolId(supabase, user.id, input.direction)) {
-    return { ok: true, status: "already_matched" };
+  let leftPreviousPool = false;
+  const existingPoolId = await findMyPoolId(supabase, user.id, input.direction);
+  if (existingPoolId) {
+    const timeChanged = priorFlight && priorFlight.scheduled_at !== scheduledAt.toISOString();
+    if (!timeChanged) return { ok: true, status: "already_matched" };
+
+    // Flight time actually changed while matched — the old pool's pickup
+    // time no longer reflects this rider, so leave it (notifying whoever's
+    // left) and fall through to search fresh, exactly like a first-time
+    // submission would.
+    await leavePool(supabase, user.id, existingPoolId);
+    leftPreviousPool = true;
   }
 
   const { data: pools } = await supabase
@@ -91,7 +143,7 @@ export async function submitFlight(
   }));
 
   const best = findBestPool(candidates, scheduledAt.toISOString(), input.windowHours);
-  if (!best) return { ok: true, status: "no_match" };
+  if (!best) return { ok: true, status: "no_match", leftPreviousPool };
 
   return {
     ok: true,
@@ -100,6 +152,7 @@ export async function submitFlight(
     poolId: best.id,
     pickupAt: best.pickupAt,
     memberCount: best.memberCount,
+    leftPreviousPool,
   };
 }
 
@@ -206,10 +259,9 @@ export async function joinProposedPool(poolId: string): Promise<Result & { full?
   return { ok: true };
 }
 
-// Replaces the old deleteFlight — cancellation only through "the night
-// before" (canCancelFlight), not same-day. Leaves whatever pool this
-// direction was matched into, re-centering it for whoever's left (or
-// clearing the pool out entirely if this was the last member).
+// Explicit cancellation — only through "the night before" (canCancelFlight),
+// not same-day. Leaves whatever pool this direction was matched into via
+// the same leavePool() an automatic time-change uses.
 export async function cancelFlight(direction: Direction): Promise<Result> {
   const { user, supabase } = await requireUser();
   const conference = await getConference(supabase);
@@ -228,28 +280,8 @@ export async function cancelFlight(direction: Direction): Promise<Result> {
     return { ok: false, error: "Too late to cancel — only possible until the night before." };
   }
 
-  const { data: myMembership } = await supabase.from("ride_members").select("pool_id").eq("user_id", user.id);
-  const myPoolIds = (myMembership ?? []).map((m) => m.pool_id as string);
-  if (myPoolIds.length) {
-    const { data: pool } = await supabase
-      .from("ride_pools")
-      .select("id")
-      .eq("direction", direction)
-      .in("id", myPoolIds)
-      .maybeSingle();
-    if (pool) {
-      await supabase.from("ride_members").delete().eq("pool_id", pool.id).eq("user_id", user.id);
-      const { data: remaining } = await supabase.from("ride_members").select("flight_at").eq("pool_id", pool.id);
-      if (remaining && remaining.length) {
-        await supabase
-          .from("ride_pools")
-          .update({ pickup_at: averagePickupAt(remaining.map((r) => r.flight_at as string)) })
-          .eq("id", pool.id);
-      } else {
-        await supabase.from("ride_pools").delete().eq("id", pool.id);
-      }
-    }
-  }
+  const poolId = await findMyPoolId(supabase, user.id, direction);
+  if (poolId) await leavePool(supabase, user.id, poolId);
 
   const { error } = await supabase.from("flights").delete().eq("id", flight.id);
   if (error) return { ok: false, error: error.message };
