@@ -27,7 +27,6 @@ export default async function BoardPage() {
       <header className="page-head">
         <p className="page-kicker">{conference?.name ?? "Icebreaker"}</p>
         <h1 className="page-title">Home</h1>
-        <p className="page-sub">Announcements and the conference schedule, in one place.</p>
       </header>
 
       <div style={{ marginTop: 8 }}>
