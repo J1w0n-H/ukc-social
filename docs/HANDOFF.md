@@ -1,6 +1,14 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-31 (Ride-matching self-review: 2 bugs fixed, flight-time-change handling, dead code removed)_
+_Last updated: 2026-07-31 (Migrations 0018/0019 applied — ride matching is live)_
+
+### Update — 2026-07-31 Migrations 0018/0019 applied — ride matching is live
+
+Confirmed directly against the live project: `flights.window_hours`/
+`ride_pools.airport` resolve, `ride_pools.anchor_flight_id` is gone, and
+`notifications.type` accepts `ride_member_left`. All migrations `0001`–
+`0019` are now applied — see "Remaining Human TODOs" below, which no longer
+lists any pending migrations.
 
 ### Update — 2026-07-31 Self-review of the ride-matching rewrite
 
@@ -669,17 +677,15 @@ of this file. Items resolved since the last pass (migration `0008`, the original
 Vercel deploy, rides/polish) have been removed rather than left stale; see the dated
 Updates above for what actually closed them out._
 
-**Migrations `0001`–`0017` are applied and confirmed live** as of 2026-07-30
-(`0011`, `0013`, `0014`, `0017` were the last four before this — verified
-directly: `ride_members`, `message_reads`, `notifications` all resolve, and
-the `type` check constraint accepts `new_message`/`announcement`).
-**`0018_ride_matching.sql` and `0019_ride_member_left.sql` are new and not
-yet applied** — needed for the rides-matching rewrite above to work live
-(`flights.window_hours`, `ride_pools.airport`, dropped `anchor_flight_id`,
-added `ride_pools` update/delete RLS, and the `ride_member_left`
-notification type). Until they're applied, `submitFlight`/
-`joinProposedPool`/`startOwnPool`/`cancelFlight` will error against the
-live schema.
+**All migrations `0001`–`0019` are applied and confirmed live** as of
+2026-07-31 — verified directly: `flights.window_hours`/`ride_pools.airport`
+resolve, `ride_pools.anchor_flight_id` is gone, and the `notifications.type`
+check constraint accepts `ride_member_left`. Ride matching
+(`submitFlight`/`joinProposedPool`/`startOwnPool`/`cancelFlight`) is
+functionally live now, not just deployed code. Two leftover test
+`ride_pools` rows from before `0018` (same single test user, own solo
+pools) now have `airport = ''` and are invisible to matching going forward
+— harmless, optional cleanup only.
 
 The conference/DB is also live-configured: **UKC 2026** is registered (Aug
 5–8, ChampionsGate FL, timezone America/New_York, airport MCO, auto-matching
