@@ -230,11 +230,20 @@ export default function ProfileEditor({
           </p>
         )}
 
-        {(fmtFlight(flight.arrival) || fmtFlight(flight.departure)) && (
+        {/* Reads initialFlight (what's actually saved), NOT `flight`. That state is
+            seeded with flightDefaults so the datetime pickers open on a sensible date,
+            and rendering it here claimed a flight the user never posted. router.refresh()
+            after save re-renders this from the server, so it stays current. */}
+        {(fmtFlight(initialFlight.arrival) || fmtFlight(initialFlight.departure)) && (
           <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 14 }}>
-            ✈ {fmtFlight(flight.arrival) ? `Landing ${fmtFlight(flight.arrival)}` : "No arrival set"}
+            ✈{" "}
+            {fmtFlight(initialFlight.arrival)
+              ? `Landing ${fmtFlight(initialFlight.arrival)}`
+              : "No arrival set"}
             {" · "}
-            {fmtFlight(flight.departure) ? `Leaving ${fmtFlight(flight.departure)}` : "No departure set"}
+            {fmtFlight(initialFlight.departure)
+              ? `Leaving ${fmtFlight(initialFlight.departure)}`
+              : "No departure set"}
           </p>
         )}
 

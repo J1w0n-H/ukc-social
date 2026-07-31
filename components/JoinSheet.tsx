@@ -108,7 +108,8 @@ export default function JoinSheet({
         <p className="sheet-kicker">Dinner</p>
         <h2 className="sheet-title">{slot.title}</h2>
         <p className="sheet-sub">
-          {dtf.format(new Date(slot.starts_at))} · {slot.area}
+          {dtf.format(new Date(slot.starts_at))}
+          {slot.area ? ` · ${slot.area}` : ""}
         </p>
 
         {closed ? (

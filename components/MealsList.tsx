@@ -24,8 +24,12 @@ const fmtWhen = (timezone: string) =>
   });
 
 function whenLine(startsAt: string, area: string, timezone: string) {
-  // "Wed, 7:00 PM" -> "Wed · 7:00 PM · ChampionsGate"
-  return `${fmtWhen(timezone).format(new Date(startsAt)).replace(", ", " · ")} · ${area}`;
+  // "Wed, 7:00 PM" -> "Wed · 7:00 PM · ChampionsGate", or just "Wed · 7:00 PM"
+  // when the slot has no area. Slots seeded from the conference dates carry an
+  // empty area, which used to render a dangling separator. Same guard Home
+  // already uses (app/(tabs)/home/page.tsx).
+  const when = fmtWhen(timezone).format(new Date(startsAt)).replace(", ", " · ");
+  return area ? `${when} · ${area}` : when;
 }
 
 export default function MealsList({
