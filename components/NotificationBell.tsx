@@ -20,7 +20,7 @@ const COPY: Record<Notification["type"], { text: string; href: (p: Record<string
     text: "New message.",
     href: (p) => (p.channel_type === "meal" ? `/groups/${p.channel_id}/chat` : "/rides"),
   },
-  announcement: { text: "New announcement.", href: () => "/board" },
+  announcement: { text: "New announcement.", href: () => "/schedule" },
   ride_member_left: { text: "Someone left your ride.", href: () => "/rides" },
 };
 

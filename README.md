@@ -12,8 +12,8 @@ See who else is around before you arrive.
 | **Ride matching** | Post a landing time and how wide a window you will accept. The app proposes the closest open carpool rather than auto-joining, and re-centers that pool's pickup time on everyone's real flight times when you join. |
 | **People** | A directory with "arriving early / staying late / same dates as you" badges. KakaoTalk and LinkedIn stay hidden until you actually share a table or a ride, enforced in the database, not just the UI. |
 
-Five tabs: **홈** (announcements and schedule) · **친구** (your hub) · **채팅** ·
-**매칭** (meals and rides) · **마이페이지**.
+Five tabs, in bar order: **일정** (announcement and schedule) · **채팅** · **홈**
+(your hub, centered) · **매칭** (meals and rides) · **마이페이지**.
 
 **Design:** a frost-navy ground (`#0A121C`) with one icy-cyan accent (`#4FD1E8`) used
 only on actions and state, never decoration. Hairline dividers instead of cards,
@@ -38,14 +38,13 @@ Legend: **solid** = wired and working · **dashed amber** = works, but only one 
 
 ```mermaid
 flowchart TD
-    ROOT(["/"]) -->|redirect| BOARD["홈 · /board"]
+    ROOT(["/"]) -->|redirect| HOME["홈 · /home"]
 
     LOGIN["/login<br/>email · Google · guest"]
     FORGOT["/forgot"]
     RESET["/reset"]
     CB{{"/auth/callback"}}
     WELCOME["/welcome<br/>step 1 → 5"]
-    HOME["친구 · /home"]
     PEOPLE["/people"]
 
     LOGIN -->|sign in / sign up| CB
@@ -74,9 +73,9 @@ There is no "onboarded" flag.
 flowchart TD
     subgraph BAR ["Tab bar"]
         direction LR
-        BOARD["홈<br/>/board"]
-        HOME["친구<br/>/home"]
+        SCHED["일정<br/>/schedule"]
         CHAT["채팅<br/>/chat"]
+        HOME["홈<br/>/home"]
         MATCH["매칭<br/>/matching"]
         ME["마이페이지<br/>/me"]
     end
@@ -101,27 +100,28 @@ flowchart TD
     BELL -->|table_revealed| GCHAT
     BELL -->|new_message| GCHAT
     BELL -->|ride_matched| MATCH
+    BELL -->|announcement| SCHED
 
     CHAT -.->|"라이드 스레드가 목록에 없음"| RCHAT
     BELL -.->|"공개 화면을 건너뛰고 바로 채팅으로"| REVEAL
-    PEOPLE -.->|"탭 바에 없음, 친구 탭 배너로만 진입"| HOME
+    PEOPLE -.->|"탭 바에 없음, 홈 탭 배너로만 진입"| HOME
 
     classDef ok fill:#121C29,stroke:#4FD1E8,stroke-width:1.5px,color:#F2F6FA
     classDef gapnode fill:#1C1420,stroke:#E8788A,stroke-width:1.5px,color:#F2F6FA
     classDef sys fill:#0A121C,stroke:#5C7086,color:#8CA0B8
-    class BOARD,HOME,CHAT,MATCH,ME,PEOPLE,REVEAL,GCHAT,ADMIN ok
+    class SCHED,HOME,CHAT,MATCH,ME,PEOPLE,REVEAL,GCHAT,ADMIN ok
     class RCHAT gapnode
     class BELL sys
 
-    linkStyle 13,14,15 stroke:#E8788A,color:#E8788A
+    linkStyle 14,15,16 stroke:#E8788A,color:#E8788A
 ```
 
 ### Where each screen can take you
 
 | 화면 | 나가는 길 | 상태 |
 |---|---|---|
-| 홈 `/board` | 없음. 공지와 일정을 읽기만 함 | 의도된 것인지 확인 필요 |
-| 친구 `/home` | 매칭, 참가자, 내 테이블 채팅 | 정상 |
+| 일정 `/schedule` | 없음. 공지와 일정을 읽기만 함 | 읽기 전용으로 의도된 화면 |
+| 홈 `/home` | 매칭, 참가자, 내 테이블 채팅 | 정상 |
 | 채팅 `/chat` | 테이블 채팅 | 라이드 채팅 누락 |
 | 매칭 `/matching` | 테이블 채팅, 라이드 채팅 | 정상 |
 | 마이페이지 `/me` | 테이블 공개 화면, 로그인 | 정상 |
@@ -138,10 +138,13 @@ flowchart TD
 2. **테이블 공개 화면이 거의 고아 상태입니다.** 매칭 결과, 아이스브레이커 질문, 멤버
    카드가 있는 화면인데 들어가는 길이 마이페이지와 채팅 헤더 두 곳뿐입니다. "테이블이
    정해졌어요" 알림조차 이 화면을 건너뛰고 채팅으로 바로 갑니다.
-3. **참가자 목록이 탭 바에 없습니다.** 친구 탭의 배너 하나로만 들어갈 수 있습니다.
-4. **진입점이 두 개입니다.** `/`는 `/board`로, 로그인 후에는 `/home`으로 갑니다.
-5. **라이드 채팅에서 나가는 링크가 없습니다.** 테이블 채팅에는 헤더에 공개 화면으로
+3. **참가자 목록이 탭 바에 없습니다.** 홈 탭의 배너 하나로만 들어갈 수 있습니다.
+   탭 다섯 자리가 모두 차 있어서 의도적으로 둔 상태입니다.
+4. **라이드 채팅에서 나가는 링크가 없습니다.** 테이블 채팅에는 헤더에 공개 화면으로
    돌아가는 링크가 있지만, 라이드 채팅에는 대응되는 링크가 없습니다.
+5. **홈에 라이드 상태가 없습니다.** 항공편을 올리기 전에는 안내 배너가 뜨지만, 올리고
+   나면 그 줄이 사라지고 대신 들어오는 것이 없습니다. 매칭된 풀도 픽업 시간도 홈에서는
+   보이지 않습니다.
 
 ---
 
@@ -207,7 +210,7 @@ re-apply all of them:
 | `0013_message_reads.sql` | `message_reads`, a per-user last-read timestamp, powers the unread count on the 채팅 tab |
 | `0014_notifications.sql` | `notifications` table + realtime; all inserts are cross-user so they go through the service-role client |
 | `0015_group_starter_question.sql` | Renames `groups.suggested_place` → `starter_question`. The LLM now writes an icebreaker question instead of inventing a venue it has no data for |
-| `0016_schedule_announcement.sql` | `schedule_items` + announcement, the 홈 tab's admin-editable agenda |
+| `0016_schedule_announcement.sql` | `schedule_items` + announcement, the 일정 tab's admin-editable agenda |
 | `0017_notification_types.sql` | Widens the notification type check: new chat message, new/changed announcement |
 | `0018_ride_matching.sql` | Rides get real find-or-create matching by time, replacing browse-and-join |
 | `0019_ride_member_left.sql` | Notifies the rest of a ride pool when someone leaves |

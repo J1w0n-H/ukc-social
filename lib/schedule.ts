@@ -1,5 +1,5 @@
 // Groups flat schedule_items rows into days -> time slots -> parallel items,
-// for 홈's agenda view. Rows aren't stored pre-nested (see migration 0016) —
+// for 일정's agenda view. Rows aren't stored pre-nested (see migration 0016) —
 // several rows can legitimately share the same starts_at/ends_at (parallel
 // tracks), and this is the one place that reassembles that structure. Pure
 // grouping/sorting logic only — display formatting (weekday/time strings,
@@ -51,7 +51,7 @@ export function groupScheduleByDay(items: ScheduleItem[], timezone: string): Sch
     .map(([date, slots]) => ({ date, slots: [...slots.values()] }));
 }
 
-// Which day 홈's schedule pager should open on: today's day if it's in
+// Which day 일정's schedule pager should open on: today's day if it's in
 // range, day 1 if today is before the schedule starts, the last day if
 // today is after it ends. `todayDate` is a YYYY-MM-DD string in the same
 // timezone `days` was grouped in (see groupScheduleByDay) — the two must
