@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Notification = {
   id: string;
-  type: "table_revealed" | "ride_matched" | "hi_received";
+  type: "table_revealed" | "ride_matched" | "hi_received" | "new_message" | "announcement";
   payload: Record<string, unknown>;
   read_at: string | null;
   created_at: string;
@@ -16,6 +16,11 @@ const COPY: Record<Notification["type"], { text: string; href: (p: Record<string
   table_revealed: { text: "Your table is set — say hi.", href: (p) => `/groups/${p.group_id}/chat` },
   ride_matched: { text: "Someone joined your ride.", href: () => "/rides" },
   hi_received: { text: "Someone said hi to you.", href: () => "/home" },
+  new_message: {
+    text: "New message.",
+    href: (p) => (p.channel_type === "meal" ? `/groups/${p.channel_id}/chat` : "/rides"),
+  },
+  announcement: { text: "New announcement.", href: () => "/board" },
 };
 
 export default function NotificationBell() {

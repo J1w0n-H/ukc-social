@@ -39,10 +39,36 @@ export async function upsertConference(fields: ConferenceInput): Promise<Result>
 
   const svc = serviceClient();
   const { id, ...rest } = fields;
+
+  // Compare against what's already stored *before* writing, so a new/changed
+  // announcement can be told apart from every other field on this form being
+  // re-saved (dates, timezone, etc.) with the announcement untouched.
+  let previousAnnouncement: string | null = null;
+  if (id) {
+    const { data: prior } = await svc.from("conferences").select("announcement").eq("id", id).maybeSingle();
+    previousAnnouncement = (prior?.announcement as string | null) ?? null;
+  }
+
   const { error } = id
     ? await svc.from("conferences").update(rest).eq("id", id)
     : await svc.from("conferences").insert(rest);
   if (error) return { ok: false, error: error.message };
+
+  // Broadcast a new/changed announcement to everyone — the actor (admin)
+  // isn't a recipient of their own broadcast, so this always needs the
+  // service-role client, same as every other cross-user notification write.
+  if (rest.announcement.trim() && rest.announcement.trim() !== (previousAnnouncement ?? "").trim()) {
+    const { data: profiles } = await svc.from("profiles").select("id");
+    if (profiles?.length) {
+      await svc.from("notifications").insert(
+        profiles.map((p) => ({
+          user_id: p.id as string,
+          type: "announcement" as const,
+          payload: {},
+        })),
+      );
+    }
+  }
 
   // Slots (lunch/dinner, one per day) come from the conference's own dates —
   // no separate admin form to hand-enter them. Only fills in titles that

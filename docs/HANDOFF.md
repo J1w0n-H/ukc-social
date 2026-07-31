@@ -1,6 +1,36 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-30 (Conference-day status moved app-wide; 홈's schedule is now a day pager with a live highlight)_
+_Last updated: 2026-07-30 (Two more notification triggers: new chat message, new/changed announcement)_
+
+### Update — 2026-07-30 Notifications: new message + new announcement triggers
+
+Asked what actually triggers a notification today — answer at the time was
+just three: `table_revealed` (a group gets matched), `ride_matched` (someone
+joins your ride pool), `hi_received` (Say hi, though its UI button is
+currently hidden — see the 2026-07-30 "Say hi" update above). Group
+assignment already had one; added the other two that were asked for.
+
+- **Migration `0017_notification_types.sql`**: widens `notifications`'
+  `type` check constraint to add `new_message` and `announcement` (existing
+  rows/types untouched). **Not yet applied to the live Supabase project** —
+  joins the still-unapplied backlog (`0011`, `0013`, `0014` — `0012`/`0015`/
+  `0016` are now live).
+- **`app/actions/messages.ts`**'s `sendMessage()`: after a message is
+  inserted, notifies the *other* members of that channel (group_members for
+  a meal chat, ride_members for a ride chat) — service-role client, same
+  reasoning as every other cross-user notification write. **Collapsed**,
+  not one row per message: skips anyone who already has an unread
+  `new_message` notification for that same channel, so an active back-and-
+  forth doesn't flood the bell with a duplicate entry per message.
+- **`app/actions/conference.ts`**'s `upsertConference()`: fetches the
+  conference's *current* `announcement` before writing, and broadcasts an
+  `announcement` notification to every profile only if the new value is
+  non-empty and actually differs from what was stored — re-saving the
+  conference form for an unrelated field (dates, timezone, …) doesn't spam
+  everyone.
+- **`components/NotificationBell.tsx`**: copy + routing for both new types
+  (`new_message` → the group's chat, or `/rides` for a ride channel since
+  there's no ride-chat page yet; `announcement` → `/board`).
 
 ### Update — 2026-07-30 Conference-day status app-wide; 홈's schedule is now a day-by-day pager
 
@@ -510,37 +540,36 @@ of this file. Items resolved since the last pass (migration `0008`, the original
 Vercel deploy, rides/polish) have been removed rather than left stale; see the dated
 Updates above for what actually closed them out._
 
-1. **Apply migrations `0011`–`0014` and `0016` to the live Supabase project**
-   (`kxvvnvzfdawsnftgjabl`) — `0011_ride_join.sql`, `0012_conference.sql`,
-   `0013_message_reads.sql`, `0014_notifications.sql`,
-   `0016_schedule_announcement.sql`. `0015` was applied on 2026-07-30 (confirmed
-   live via a direct column check), the rest are still outstanding (also confirmed
-   live: `ride_members`/`conferences`/`message_reads`/`notifications` all still
-   error or 404 against the live schema). Same manual SQL-editor step as every
-   prior migration. **`0016` alters the `conferences` table, so `0012` must be
-   applied first, in order.** Until these are applied: ride "Share" isn't real,
-   `/admin` can't register a conference, `/chat`'s unread badges stay at 0, no
-   notifications get written anywhere, and 홈's announcement/schedule can't be set.
-2. **Run `scripts/seed-schedule.ts`** once `0016` is live — seeds the real UKC
-   2026 schedule (see the dated update above). Safe to rerun (dedupes by
-   title+starts_at).
-3. **Register a conference at `/admin`** (sign in as `ADMIN_EMAIL`) — name, location,
-   start/end dates, timezone, airport code, and now an announcement too. Until one is
-   registered, every page shows the generic "Icebreaker" fallback instead of the real
-   event name/dates, and onboarding's Step 1 has nothing to show.
-4. **Set `CRON_SECRET`** in Vercel's env vars (and local `.env.local`) to match what
+1. **Apply migrations `0011`, `0013`, `0014`, `0017` to the live Supabase project**
+   (`kxvvnvzfdawsnftgjabl`) — `0011_ride_join.sql`, `0013_message_reads.sql`,
+   `0014_notifications.sql`, `0017_notification_types.sql`. `0012`, `0015`, `0016`
+   were applied and confirmed live on 2026-07-30 (`0017` needs `0014` applied
+   first — it only widens a check constraint `0014` creates). Until the rest are
+   applied: ride "Share" isn't real, `/chat`'s unread badges stay at 0, no
+   notifications get written anywhere at all, and the two new triggers
+   (new chat message, new/changed announcement) will error since their `type`
+   isn't in the live check constraint yet.
+2. **Register the fork's conference/DB is live-configured now** — done
+   2026-07-30: **UKC 2026** is registered (Aug 5–8, ChampionsGate FL, timezone
+   America/New_York, airport MCO, auto-matching *off*), and the real Aug 4–8
+   schedule is seeded (`scripts/seed-schedule.ts`, 34 items — SEED, Signature
+   Symposiums, KSEA/TG/FIRE/IES tracks, Gala/Networking dinners, Closing
+   Plenary). No announcement text set yet (홈 shows the default welcome
+   message) — set one via `/admin` whenever there's something to say.
+3. **Set `CRON_SECRET`** in Vercel's env vars (and local `.env.local`) to match what
    Vercel Cron sends as a bearer token to `/api/cron/auto-match`. ⚠️ **Auto-matching
-   is deployed but functionally inert** without both this *and* step 3's conference
-   registered with `auto_matching_enabled` turned on — don't read "the cron route
-   exists" as "auto-matching is live." Separately, Vercel Hobby only fires the cron
-   tick once/day regardless of the admin-configured interval (see the deploy-break
-   update above) — Pro is needed for a tighter tick.
-5. **Confirm `ANTHROPIC_API_KEY` is set on the live Vercel project.** Without it,
+   is deployed but functionally inert** without both this *and* turning
+   `auto_matching_enabled` on for the now-registered conference at `/admin` —
+   don't read "the cron route exists" as "auto-matching is live." Separately,
+   Vercel Hobby only fires the cron tick once/day regardless of the admin-
+   configured interval (see the deploy-break update above) — Pro is needed for
+   a tighter tick.
+4. **Confirm `ANTHROPIC_API_KEY` is set on the live Vercel project.** Without it,
    matching uses the round-robin fallback (groups are correct, but the rationale is
    generic instead of the warm AI blurb, and tables get plain "Table N" names instead
    of a themed one — see "Matching pipeline correctness" above). Status as of the
    last live check (07-29, pre-migration-0012 project) was: not set.
-6. **Google OAuth** (optional) — enable in Supabase Auth providers; the login page's
+5. **Google OAuth** (optional) — enable in Supabase Auth providers; the login page's
    email+password and magic-link paths already work without it.
 
 ## Deploy to Vercel (checklist)
