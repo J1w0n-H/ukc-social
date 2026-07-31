@@ -1,6 +1,19 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-30 (Two more notification triggers: new chat message, new/changed announcement)_
+_Last updated: 2026-07-30 (All 17 migrations confirmed applied to the live Supabase project)_
+
+### Update — 2026-07-30 All migrations applied — verified live, not just deployed
+
+`0011`, `0013`, `0014`, `0017` (the last of the still-outstanding migrations)
+were applied via the SQL editor and verified directly against the live
+project: `ride_members`/`message_reads`/`notifications` all resolve, and the
+`notifications.type` check constraint accepts `new_message`/`announcement`.
+Combined with `0012`/`0015`/`0016` already confirmed earlier the same day,
+**every migration through `0017` is now live** — ride "Share", `/chat`'s
+unread badges, and all four notification triggers are functionally real on
+the deployed app, not just shipped in code. See "Remaining Human TODOs"
+below for what's still outstanding (`CRON_SECRET`, `ANTHROPIC_API_KEY`,
+optional Google OAuth) — none of it is migrations anymore.
 
 ### Update — 2026-07-30 Notifications: new message + new announcement triggers
 
@@ -540,23 +553,22 @@ of this file. Items resolved since the last pass (migration `0008`, the original
 Vercel deploy, rides/polish) have been removed rather than left stale; see the dated
 Updates above for what actually closed them out._
 
-1. **Apply migrations `0011`, `0013`, `0014`, `0017` to the live Supabase project**
-   (`kxvvnvzfdawsnftgjabl`) — `0011_ride_join.sql`, `0013_message_reads.sql`,
-   `0014_notifications.sql`, `0017_notification_types.sql`. `0012`, `0015`, `0016`
-   were applied and confirmed live on 2026-07-30 (`0017` needs `0014` applied
-   first — it only widens a check constraint `0014` creates). Until the rest are
-   applied: ride "Share" isn't real, `/chat`'s unread badges stay at 0, no
-   notifications get written anywhere at all, and the two new triggers
-   (new chat message, new/changed announcement) will error since their `type`
-   isn't in the live check constraint yet.
-2. **Register the fork's conference/DB is live-configured now** — done
-   2026-07-30: **UKC 2026** is registered (Aug 5–8, ChampionsGate FL, timezone
-   America/New_York, airport MCO, auto-matching *off*), and the real Aug 4–8
-   schedule is seeded (`scripts/seed-schedule.ts`, 34 items — SEED, Signature
-   Symposiums, KSEA/TG/FIRE/IES tracks, Gala/Networking dinners, Closing
-   Plenary). No announcement text set yet (홈 shows the default welcome
-   message) — set one via `/admin` whenever there's something to say.
-3. **Set `CRON_SECRET`** in Vercel's env vars (and local `.env.local`) to match what
+**All 17 migrations are applied and confirmed live** as of 2026-07-30 (`0011`,
+`0013`, `0014`, `0017` were the last four — verified directly: `ride_members`,
+`message_reads`, `notifications` all resolve, and the `type` check constraint
+accepts `new_message`/`announcement`). Ride "Share", `/chat`'s unread badges,
+and every notification trigger (table assignment, ride match, new message,
+new/changed announcement) are live for real now, not just deployed code.
+
+The conference/DB is also live-configured: **UKC 2026** is registered (Aug
+5–8, ChampionsGate FL, timezone America/New_York, airport MCO, auto-matching
+*off*), and the real Aug 4–8 schedule is seeded (`scripts/seed-schedule.ts`,
+34 items — SEED, Signature Symposiums, KSEA/TG/FIRE/IES tracks, Gala/
+Networking dinners, Closing Plenary). No announcement text set yet (홈 shows
+the default welcome message) — set one via `/admin` whenever there's
+something to say.
+
+1. **Set `CRON_SECRET`** in Vercel's env vars (and local `.env.local`) to match what
    Vercel Cron sends as a bearer token to `/api/cron/auto-match`. ⚠️ **Auto-matching
    is deployed but functionally inert** without both this *and* turning
    `auto_matching_enabled` on for the now-registered conference at `/admin` —
@@ -564,12 +576,12 @@ Updates above for what actually closed them out._
    Vercel Hobby only fires the cron tick once/day regardless of the admin-
    configured interval (see the deploy-break update above) — Pro is needed for
    a tighter tick.
-4. **Confirm `ANTHROPIC_API_KEY` is set on the live Vercel project.** Without it,
+2. **Confirm `ANTHROPIC_API_KEY` is set on the live Vercel project.** Without it,
    matching uses the round-robin fallback (groups are correct, but the rationale is
    generic instead of the warm AI blurb, and tables get plain "Table N" names instead
    of a themed one — see "Matching pipeline correctness" above). Status as of the
    last live check (07-29, pre-migration-0012 project) was: not set.
-5. **Google OAuth** (optional) — enable in Supabase Auth providers; the login page's
+3. **Google OAuth** (optional) — enable in Supabase Auth providers; the login page's
    email+password and magic-link paths already work without it.
 
 ## Deploy to Vercel (checklist)
