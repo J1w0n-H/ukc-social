@@ -539,7 +539,10 @@ export default function Chat({
       )}
 
       <style>{`
-        .chat-root { display: flex; flex-direction: column; height: 100dvh; }
+        /* Standalone route (no TabBar/.app-main), so this needs its own
+           width cap — otherwise messages/composer stretch edge-to-edge on a
+           wide screen while every other page is capped at 720px. */
+        .chat-root { display: flex; flex-direction: column; height: 100dvh; max-width: 720px; margin: 0 auto; }
 
         .sr-live {
           position: absolute; width: 1px; height: 1px;

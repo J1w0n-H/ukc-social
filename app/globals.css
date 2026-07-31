@@ -173,8 +173,17 @@ h3 {
 /* ── Responsive desktop layout ─────────────────────────────────────────────
    Mobile stays the fixed-bottom-tabbar layout unchanged; >=1024px switches
    to a left icon rail (TabBar.tsx) + reflows main content beside it instead
-   of below it. */
-.app-main { padding-bottom: 88px; }
+   of below it.
+   Every (tabs) page (Home/홈/채팅/매칭/Meals/Me/People/Rides) used to render
+   with no width cap at all — full-bleed edge-to-edge on a wide screen,
+   right next to auth/onboarding/admin pages that were already capped
+   (420-640px, several different values). Content visibly jumping width
+   between tabs was the actual bug report ("너비가 왔다갔다 해"), most
+   noticeable going from onboarding (narrow, centered) into People (was
+   uncapped). One shared cap here fixes every (tabs) page in one place —
+   720px leaves room for People's desktop 3-column grid without being
+   edge-to-edge on a wide window. */
+.app-main { padding-bottom: 88px; max-width: 720px; margin: 0 auto; }
 @media (min-width: 1024px) {
   .app-main { padding-bottom: 0; padding-left: 64px; }
 }

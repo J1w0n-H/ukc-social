@@ -1,6 +1,36 @@
 # Icebreaker (formerly UKC Social) — Handoff / Status
 
-_Last updated: 2026-07-31 (Migrations 0018/0019 applied — ride matching is live)_
+_Last updated: 2026-07-31 (Fixed inconsistent page width — was uncapped on most tabs)_
+
+### Update — 2026-07-31 Page width audit — most tabs had no cap at all
+
+Reported live: the app's width visibly jumped between pages, worst going
+from onboarding into People. Root cause found by auditing every route's
+container: `/home`, `/board`, `/chat`, `/matching`, `/meals`, `/me`,
+`/people`, `/rides` (everything under the shared `(tabs)` layout) had **no
+max-width at all** — full-bleed edge-to-edge on a wide screen — right next
+to auth/onboarding/admin/`GroupReveal`, which were already capped, just at
+several different values (420/430/460/480/640) that were never audited
+together. Group and ride chat (`components/Chat.tsx`, standalone routes
+outside `(tabs)`) were uncapped too.
+
+- **`app/globals.css`**'s `.app-main`** (wraps every `(tabs)` page): added
+  `max-width: 720px; margin: 0 auto`. One shared rule fixes all eight tabs
+  at once — chosen wide enough that People's existing desktop 3-column
+  grid still has room, not squeezed into a form-width column.
+- **`components/Chat.tsx`**'s `.chat-root`: same 720px cap + centering —
+  it's a standalone route (no `TabBar`/`.app-main`), so it needed its own,
+  not inherited.
+- **Left alone** (already capped, not the reported bug): auth pages (420),
+  onboarding (430), `SignupGate` (460), `GroupReveal` (480), `/admin` (640),
+  `/match-demo` (430, internal demo). Not unified to one exact pixel value —
+  a narrower cap suits a single-focus form differently than a browsable
+  list, and none of them were the "uncapped, full-bleed" bug being reported.
+- Verified: `tsc`/tests (122/122, unchanged)/lint/build all clean, dev-
+  server smoke check on all eight `(tabs)` routes. **Not visually confirmed
+  in an actual browser at a desktop width** — no browser-automation tool
+  available in this environment; only the CSS change and routes rendering
+  without errors were checked.
 
 ### Update — 2026-07-31 Migrations 0018/0019 applied — ride matching is live
 
