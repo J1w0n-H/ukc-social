@@ -119,7 +119,7 @@ export default function TabBar() {
           }
         }
         /* Desktop web layout: the same tab list, laid out as a left icon rail
-           instead of a bottom bar — no forked component/logic, just a second
+           instead of a bottom bar. No forked component or logic, just a second
            CSS-driven arrangement. 마이페이지 (last item) gets pushed to the
            bottom via margin-top: auto, leaving room above it for
            NotificationBell (positioned separately, see app/globals.css). */
@@ -139,7 +139,9 @@ export default function TabBar() {
             flex: 0 0 auto;
             padding: 14px 0;
           }
-          .tabbar__item:last-child {
+          /* :last-of-type, not :last-child. The inline <style> below is the
+             real last child of .tabbar, so :last-child matched nothing. */
+          a.tabbar__item:last-of-type {
             margin-top: auto;
           }
         }

@@ -155,8 +155,8 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
       <Field label="Auto-match every (minutes)">
         <input
           type="number"
-          min={15}
-          step={15}
+          min={60}
+          step={60}
           className="admin-input"
           style={{ maxWidth: 140 }}
           value={form.matching_interval_minutes}
@@ -164,8 +164,8 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
         />
       </Field>
       <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: -4, marginBottom: 10 }}>
-        e.g. 360 = every 6 hours. Enforced inside /api/cron/auto-match — the actual Vercel
-        Cron tick may be less frequent depending on plan.
+        e.g. 360 = every 6 hours. Enforced inside /api/cron/auto-match, which Vercel Cron
+        ticks hourly, so 60 is the floor. Hobby plans tick once a day.
       </p>
 
       {conference && (

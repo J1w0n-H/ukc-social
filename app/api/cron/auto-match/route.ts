@@ -4,11 +4,12 @@ import { getConference } from "@/lib/conference";
 import { shouldAutoMatch } from "@/lib/autoMatch";
 import { runAllSlots } from "@/lib/matchRunner";
 
-// Hit by Vercel Cron (see vercel.json) on a fixed tick. The admin-configured
-// `matching_interval_minutes` (and the "starts 7 days before the conference"
-// window) are enforced by shouldAutoMatch() below, not by the cron schedule
-// itself — the tick just needs to fire at least as often as the shortest
-// interval an admin might configure.
+// Hit by Vercel Cron (see vercel.json) on a fixed hourly tick. The
+// admin-configured `matching_interval_minutes` (and the "starts 7 days before
+// the conference" window) are enforced by shouldAutoMatch() below, not by the
+// cron schedule itself. The tick has to fire at least as often as the shortest
+// configurable interval, which is why upsertConference floors that setting at
+// 60 minutes.
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
