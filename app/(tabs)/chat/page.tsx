@@ -135,7 +135,7 @@ export default async function ChatIndexPage() {
 
       {rows.length === 0 ? (
         <p style={{ color: "var(--ink-2)", fontSize: 15, paddingTop: 8 }}>
-          No conversations yet — join a dinner or ride to start one.
+          No conversations yet. Join a dinner or ride to start one.
         </p>
       ) : (
         <div style={{ marginTop: 12, borderTop: "1px solid var(--line)" }}>

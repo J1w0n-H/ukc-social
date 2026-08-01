@@ -234,7 +234,7 @@ describe("repackInvalid", () => {
 describe("validateAssignment — unavoidable oversize (indivisible party > max)", () => {
   it("flags an unavoidable oversized table as not-ok, even though it's the only possible grouping", () => {
     // Documents an existing gap, not a new fix: roundRobinGroups() will still
-    // produce (and app/actions/admin.ts's matchOneSlot will still insert) this
+    // produce (and lib/matchRunner.ts's matchOneSlot will still insert) this
     // exact table, since parties can never be split. validateAssignment's
     // "oversize is a hard fail" is informational here, not enforced upstream —
     // there's no retry/split path for an indivisible party bigger than max.

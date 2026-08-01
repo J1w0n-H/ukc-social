@@ -1,5 +1,5 @@
 // Hard schedule filter: interest fit must never override a schedule conflict.
-// Used both by matchOneSlot (app/actions/admin.ts, a backstop even if a join
+// Used both by matchOneSlot (lib/matchRunner.ts, a backstop even if a join
 // somehow slipped through) and joinSlot (app/actions/signups.ts, the
 // front-line check at join time).
 

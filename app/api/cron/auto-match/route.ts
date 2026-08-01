@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase/service";
 import { getConference } from "@/lib/conference";
 import { shouldAutoMatch } from "@/lib/autoMatch";
-import { runAllSlotsMatching } from "@/app/actions/admin";
+import { runAllSlots } from "@/lib/matchRunner";
 
 // Hit by Vercel Cron (see vercel.json) on a fixed tick. The admin-configured
 // `matching_interval_minutes` (and the "starts 7 days before the conference"
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, ran: false });
   }
 
-  const { ok, results } = await runAllSlotsMatching(conference);
+  const { ok, results } = await runAllSlots(conference);
 
   const { error } = await svc
     .from("conferences")

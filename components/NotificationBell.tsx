@@ -24,7 +24,7 @@ type Notification = {
 // ride message opens the thread itself, the same as a table message does, rather
 // than the list it came from.
 const COPY: Record<Notification["type"], { text: string; href: (p: Record<string, unknown>) => string }> = {
-  table_revealed: { text: "Your table is set — say hi.", href: (p) => `/groups/${p.group_id}` },
+  table_revealed: { text: "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
   ride_matched: { text: "Someone joined your ride.", href: () => "/matching?tab=rides" },
   hi_received: { text: "Someone said hi to you.", href: () => "/home" },
   new_message: {
@@ -46,6 +46,11 @@ export default function NotificationBell() {
 
   useEffect(() => {
     let active = true;
+    // Held outside the async body so the effect's own cleanup can reach it.
+    // Returning a cleanup from the inner function only returns it to the
+    // function, and React never sees it.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     (async () => {
       const {
         data: { user },
@@ -60,7 +65,8 @@ export default function NotificationBell() {
         .limit(30);
       if (active) setItems((data as Notification[]) ?? []);
 
-      const channel = supabase
+      if (!active) return;
+      channel = supabase
         .channel(`notif-${user.id}`)
         .on(
           "postgres_changes",
@@ -71,12 +77,11 @@ export default function NotificationBell() {
           },
         )
         .subscribe();
-      return () => {
-        supabase.removeChannel(channel);
-      };
     })();
+
     return () => {
       active = false;
+      if (channel) supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
