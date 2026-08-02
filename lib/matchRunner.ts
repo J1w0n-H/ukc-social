@@ -27,10 +27,18 @@ export type Result = {
   // they are the right size, and every rationale reads "Grouped to keep tables
   // even." with no icebreaker question. The admin needs to be told.
   matcher?: "interests" | "fallback";
+  // Signed up, eligible, not seated, and deliberately held back because there
+  // are too few of them to make a table on their own. They get seated on the
+  // next run once enough people join.
+  waiting?: number;
   error?: string;
 };
 type Svc = ReturnType<typeof serviceClient>;
 export type Slot = { id: string; starts_at: string };
+
+// Smallest table worth seating, by headcount. Matches the `min` that matchSlot
+// and repackInvalid already enforce.
+const MIN_TABLE = 4;
 
 // Fetch signups → drop anyone already seated → match (LLM or round-robin
 // fallback) → validate → name → insert groups+members, for a single slot.
@@ -101,6 +109,17 @@ export async function matchOneSlot(
 
   const sizes = new Map(signups.map((s) => [s.userId, s.partySize ?? 1]));
   const headcount = (ids: string[]) => ids.reduce((n, id) => n + (sizes.get(id) ?? 1), 0);
+
+  // A top-up run with only a couple of stragglers would otherwise seat them at
+  // a table of one or two and tell them "Your table is set", which is worse
+  // than telling them nothing. Hold them until there are enough for a real
+  // table. Only applies once the slot already has tables: a slot's first run
+  // still seats whoever showed up, however few, because that is the whole
+  // dinner rather than a leftover.
+  const waiting = headcount(signups.map((s) => s.userId));
+  if (alreadySeated > 0 && waiting < MIN_TABLE) {
+    return { ok: true, groups: 0, excluded, alreadySeated, waiting };
+  }
 
   let groups: MatchGroup[];
   try {

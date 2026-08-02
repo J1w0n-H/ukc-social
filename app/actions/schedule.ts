@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabase } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/isAdmin";
 import { serviceClient } from "@/lib/supabase/service";
 
 type Result = { ok: boolean; error?: string };
@@ -18,7 +19,7 @@ async function requireAdmin() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return !!user && user.email === process.env.ADMIN_EMAIL;
+  return isAdmin(user);
 }
 
 export async function upsertScheduleItem(fields: ScheduleItemInput): Promise<Result> {

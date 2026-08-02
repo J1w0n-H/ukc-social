@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/isAdmin";
 import { getConference } from "@/lib/conference";
 import AdminSlotRow from "@/components/AdminSlotRow";
 import AdminConferenceForm from "@/components/AdminConferenceForm";
@@ -7,7 +8,7 @@ import AdminScheduleForm from "@/components/AdminScheduleForm";
 
 export default async function AdminPage() {
   const { user, supabase } = await requireUser();
-  if (user.email !== process.env.ADMIN_EMAIL) notFound();
+  if (!(await isAdmin(user))) notFound();
 
   const conference = await getConference(supabase);
 
