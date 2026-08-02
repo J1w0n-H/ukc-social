@@ -193,7 +193,13 @@ h3 {
    viewport and still centers once the window passes 720px. */
 .app-main { padding-bottom: 88px; width: 100%; max-width: 720px; margin: 0 auto; }
 @media (min-width: 1024px) {
-  .app-main { padding-bottom: 0; padding-left: 64px; }
+  /* The rail's 64px is added to max-width, not taken out of it. box-sizing is
+     border-box, so `padding-left: 64px` against a 720px max-width was paying
+     for the rail out of the content budget: the column measured 656px on
+     desktop, narrower than the 720px the same page gets on a tablet. Widening
+     by exactly the rail keeps the column at 720px and still centers it in the
+     space beside the rail. */
+  .app-main { padding-bottom: 0; padding-left: 64px; max-width: calc(720px + 64px); }
 }
 
 /* NotificationBell's fixed position — top-right on every breakpoint. An
@@ -220,5 +226,10 @@ h3 {
   text-align: center;
 }
 @media (min-width: 1024px) {
-  .day-status-bar { padding-left: calc(64px + 16px); text-align: left; }
+  /* Stays centered on desktop rather than flush-left against the rail. The
+     bar spans the window while the page content is a centered column, so
+     left-aligning put this text ~340px away from the column it labels and it
+     read as belonging to nothing. Left padding of rail + 16px against the
+     shorthand's 16px right padding centers it on the column exactly. */
+  .day-status-bar { padding-left: calc(64px + 16px); text-align: center; }
 }
