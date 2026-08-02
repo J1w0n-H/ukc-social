@@ -34,12 +34,8 @@ export async function upsertConference(fields: ConferenceInput): Promise<Result>
   if (!fields.name.trim()) return { ok: false, error: "Name is required." };
   if (new Date(fields.starts_at) >= new Date(fields.ends_at))
     return { ok: false, error: "Start date must be before end date." };
-  // Floored at the cron tick (hourly, see vercel.json). Anything shorter is a
-  // setting the deployment cannot honour: shouldAutoMatch would clear, but no
-  // request arrives to act on it, so the form would promise a cadence the app
-  // silently rounds up to an hour anyway.
-  if (!Number.isFinite(fields.matching_interval_minutes) || fields.matching_interval_minutes < 60)
-    return { ok: false, error: "Matching interval must be at least 60 minutes." };
+  if (!Number.isFinite(fields.matching_interval_minutes) || fields.matching_interval_minutes <= 0)
+    return { ok: false, error: "Matching interval must be a positive number of minutes." };
 
   const svc = serviceClient();
   const { id, ...rest } = fields;

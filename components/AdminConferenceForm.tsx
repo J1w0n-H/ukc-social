@@ -156,7 +156,7 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
         <input
           type="number"
           min={60}
-          step={60}
+          step={30}
           className="admin-input"
           style={{ maxWidth: 140 }}
           value={form.matching_interval_minutes}
@@ -164,8 +164,9 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
         />
       </Field>
       <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: -4, marginBottom: 10 }}>
-        e.g. 360 = every 6 hours. Enforced inside /api/cron/auto-match, which Vercel Cron
-        ticks hourly, so 60 is the floor. Hobby plans tick once a day.
+        A minimum gap between auto-runs, not a schedule. Vercel Cron ticks this deployment
+        once a day, so anything under 24 hours behaves the same. During the conference, use
+        Run matching on a slot instead: it seats whoever is new and leaves existing tables alone.
       </p>
 
       {conference && (

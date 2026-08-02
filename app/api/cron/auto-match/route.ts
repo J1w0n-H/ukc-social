@@ -4,12 +4,18 @@ import { getConference } from "@/lib/conference";
 import { shouldAutoMatch } from "@/lib/autoMatch";
 import { runAllSlots } from "@/lib/matchRunner";
 
-// Hit by Vercel Cron (see vercel.json) on a fixed hourly tick. The
-// admin-configured `matching_interval_minutes` (and the "starts 7 days before
-// the conference" window) are enforced by shouldAutoMatch() below, not by the
-// cron schedule itself. The tick has to fire at least as often as the shortest
-// configurable interval, which is why upsertConference floors that setting at
-// 60 minutes.
+// Hit by Vercel Cron (see vercel.json) on a daily tick, which is what the free
+// plan allows: it rejects a deployment whose cron runs more often than once a
+// day. The admin-configured `matching_interval_minutes` (and the "starts 7 days
+// before the conference" window) are enforced by shouldAutoMatch() below, so
+// that setting is a minimum gap between runs rather than a schedule. The tick is
+// the ceiling on resolution, so any interval under 24 hours behaves the same.
+//
+// This is a backstop, not the main path. Seating during the conference is meant
+// to come from the per-slot Run matching button, which is safe to press
+// repeatedly now that matchOneSlot only seats people who are not seated yet.
+// If this deployment moves to a paid plan, an hourly schedule here makes the
+// interval setting mean what it says.
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
