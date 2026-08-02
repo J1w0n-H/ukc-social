@@ -135,8 +135,14 @@ export default function ScheduleDayView({
         }
         .day-chips::-webkit-scrollbar { display: none; }
         .day-chip {
+          /* Grows to fill on a phone, where five chips land at a natural ~64px
+             and the row reads as a full-width strip. The cap is what stops the
+             same rule stretching each chip to ~120px in a 720px column, which
+             is what made this screen look unlike the rest of the app: a date
+             pill twice as wide as its own content. */
           flex: 1 0 auto;
           min-width: 56px;
+          max-width: 88px;
           display: flex;
           flex-direction: column;
           align-items: center;
