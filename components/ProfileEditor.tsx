@@ -144,7 +144,7 @@ export default function ProfileEditor({
       const leftPreviousPool =
         ("leftPreviousPool" in arrivalRes && arrivalRes.leftPreviousPool) ||
         ("leftPreviousPool" in departureRes && departureRes.leftPreviousPool);
-      flash(leftPreviousPool ? "Saved — your old ride group was notified you left" : "Saved");
+      flash(leftPreviousPool ? "Saved. Your old ride group was notified you left" : "Saved");
 
       // No one to propose joining — open your own pool right away rather
       // than leaving the flight saved with no pool at all (nothing else
@@ -383,7 +383,7 @@ export default function ProfileEditor({
 
       <Label>Flights</Label>
       <p style={{ fontSize: 12, color: "var(--ink-2)", marginTop: -2, marginBottom: 4 }}>
-        Just the time — matched with others flying near the same window on{" "}
+        Just the time, matched with others flying near the same window on{" "}
         <a href="/rides" style={{ color: "var(--accent)", fontWeight: 600 }}>
           Rides
         </a>

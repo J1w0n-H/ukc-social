@@ -143,7 +143,7 @@ export default function StepPlans({
               onChange={(e) => onFlightChange({ ...flight, departure: e.target.value })}
             />
             <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 10 }}>
-              We&apos;ll match you with others flying near the same time — just the time,
+              We&apos;ll match you with others flying near the same time. Just the time,
               nothing else. Edit anytime on Me.
             </p>
           </div>

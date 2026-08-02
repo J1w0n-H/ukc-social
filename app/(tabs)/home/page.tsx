@@ -371,7 +371,7 @@ function GroupmatesSection({
       <div className="hub-head">Your tables</div>
       {tables.length === 0 ? (
         <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 8 }}>
-          No one yet — join a dinner and get matched to see your tablemates here.
+          No one yet. Join a dinner and get matched to see your tablemates here.
         </p>
       ) : (
         tables.map((t) => (
@@ -410,7 +410,7 @@ function GroupmatesSection({
 
             {t.members.length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 10 }}>
-                Just you so far — more may join before tables lock in.
+                Just you so far. More may join before tables lock in.
               </p>
             ) : (
               t.members.map((p) => {
@@ -639,7 +639,10 @@ function LinkStyles() {
       }
       .hub-list { border-bottom: 1px solid var(--line); }
       .table-card__next {
-        display: inline-block;
+        /* block, so the badge keeps its own line above the table name. The
+           name is inline-block (it is a link sized to its text), and two
+           inline-blocks in a row render as "NEXT UPCross-Pollinators". */
+        display: block;
         font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;

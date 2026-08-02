@@ -320,7 +320,7 @@ export default function Chat({
           ref={headBtnRef}
           className="head-id"
           onClick={() => setRosterOpen(true)}
-          aria-label={`${members.length} people in your ${channelType === "ride" ? "ride" : "table"} — open roster`}
+          aria-label={`${members.length} people in your ${channelType === "ride" ? "ride" : "table"}, open roster`}
         >
           <span className="stack">
             {stack.map((m) => (
@@ -543,7 +543,7 @@ export default function Chat({
 
       <style>{`
         /* Standalone route (no TabBar/.app-main), so this needs its own
-           width cap — otherwise messages/composer stretch edge-to-edge on a
+           width cap, otherwise messages/composer stretch edge-to-edge on a
            wide screen while every other page is capped at 720px. */
         .chat-root { display: flex; flex-direction: column; height: 100dvh; max-width: 720px; margin: 0 auto; }
 

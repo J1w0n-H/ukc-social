@@ -80,7 +80,7 @@ export default function GoingSheet({
         className="going-sheet"
         role="dialog"
         aria-modal="true"
-        aria-label={`${slot.title} — you're going`}
+        aria-label={`${slot.title}, you're going`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="going-grabber" aria-hidden="true" />

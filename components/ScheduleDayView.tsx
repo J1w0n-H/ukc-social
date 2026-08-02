@@ -34,7 +34,7 @@ export default function ScheduleDayView({
     return (
       <div className="board-card board-card--empty">
         <p style={{ fontSize: 14, color: "var(--ink-2)", margin: 0 }}>
-          The conference schedule hasn&apos;t been posted yet — check back soon.
+          The conference schedule hasn&apos;t been posted yet. Check back soon.
         </p>
       </div>
     );

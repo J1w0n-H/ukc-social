@@ -23,7 +23,7 @@ export default function StepContact({
     <>
       <span className="ob-kicker">Set up · 4 of 5</span>
       <h1 className="ob-title">How can people reach you?</h1>
-      <p className="ob-sub">Shown only after you share a table or ride — never public.</p>
+      <p className="ob-sub">Shown only after you share a table or ride. Never public.</p>
 
       <label className="ob-label" htmlFor="ob-bio">One-line bio</label>
       <input
@@ -56,7 +56,7 @@ export default function StepContact({
 
       {!hasContact && (
         <div className="ct-nudge">
-          Add at least one — otherwise your tablemates see &quot;no contacts yet&quot; the
+          Add at least one. Otherwise your tablemates see &quot;no contacts yet&quot; the
           moment you&apos;re matched.
         </div>
       )}

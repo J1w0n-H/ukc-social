@@ -161,7 +161,7 @@ export default function JoinSheet({
             {scheduleWarning && (
               <div className="schedule-warn">
                 <p className="schedule-warn__text">
-                  You&apos;re leaving before this one — still join?
+                  You&apos;re leaving before this one. Still join?
                 </p>
               </div>
             )}

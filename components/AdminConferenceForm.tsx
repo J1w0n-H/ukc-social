@@ -64,9 +64,9 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
       <p style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 14 }}>
         {conference
           ? "Update details, or turn on periodic auto-matching."
-          : "Fill this in once per fork/deployment — it drives copy, timing, and matching."}
+          : "Fill this in once per fork or deployment. It drives copy, timing, and matching."}
         {" "}Saving also fills in a dinner slot for each night (and a farewell
-        lunch on the last day) from the dates below — no separate slot setup.
+        lunch on the last day) from the dates below. No separate slot setup.
       </p>
 
       <Field label="Name">
@@ -130,7 +130,7 @@ export default function AdminConferenceForm({ conference }: { conference: Confer
         </Field>
       </div>
 
-      <Field label="Announcement (홈 tab — blank shows a default welcome message)">
+      <Field label="Announcement (홈 tab, blank shows a default welcome message)">
         <textarea
           className="admin-input"
           rows={3}
