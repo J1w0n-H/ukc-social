@@ -39,7 +39,9 @@ export default async function AdminPage() {
     <section style={{ padding: "24px 20px", maxWidth: 640, margin: "0 auto" }}>
       <h1 style={{ fontSize: 28, fontWeight: 600 }}>Admin · Matching</h1>
       <p style={{ color: "var(--ink-2)", margin: "8px 0 20px" }}>
-        Run interest matching per slot. Reruns replace prior groups.
+        Run interest matching per slot. Safe to re-run: it seats whoever is not at a table
+        yet and leaves existing tables and their chats alone. A handful of leftovers are held
+        back until there are enough of them to fill a table.
       </p>
 
       <AdminConferenceForm conference={conference} />
