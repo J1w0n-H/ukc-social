@@ -74,7 +74,7 @@ export default function StepEvent({
           </button>
         ) : (
           <p style={{ color: "var(--ink-3)", fontSize: 13, lineHeight: 1.5 }}>
-            No conference is set up yet — ask an admin to register one in /admin.
+            No conference is set up yet. Ask an admin to register one in /admin.
           </p>
         )}
         <button

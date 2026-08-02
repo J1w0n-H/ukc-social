@@ -22,7 +22,7 @@ export async function joinSlot(
   }
 
   // Front-line schedule check: someone whose stay doesn't cover this slot's
-  // date gets a warning, not a silent join — matchOneSlot (app/actions/admin.ts)
+  // date gets a warning, not a silent join. matchOneSlot (lib/matchRunner.ts)
   // enforces the same rule as a backstop even if this is somehow bypassed.
   if (!opts.confirmed) {
     const { data: profile } = await supabase

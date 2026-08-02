@@ -26,7 +26,7 @@ export default async function BoardPage() {
     <section style={{ padding: "24px 20px" }}>
       <header className="page-head">
         <p className="page-kicker">{conference?.name ?? "Icebreaker"}</p>
-        <h1 className="page-title">Home</h1>
+        <h1 className="page-title">Schedule</h1>
       </header>
 
       <div style={{ marginTop: 8 }}>
@@ -38,8 +38,9 @@ export default async function BoardPage() {
         </div>
       </div>
 
+      {/* No "Schedule" section label here: the page is already titled Schedule,
+          and the date chips make it obvious what follows. */}
       <div style={{ marginTop: 28 }}>
-        <div className="board-label">Schedule</div>
         <ScheduleDayView
           days={days}
           initialIndex={initialIndex}

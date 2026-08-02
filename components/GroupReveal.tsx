@@ -290,7 +290,7 @@ export default function GroupReveal({
             {fmtTime(meetTime, timezone)}
           </div>
           <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 4 }}>
-            Where to eat is up to the table — sort it out in chat.
+            Where to eat is up to the table. Sort it out in chat.
           </div>
         </div>
       )}

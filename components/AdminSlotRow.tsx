@@ -21,9 +21,13 @@ export default function AdminSlotRow({
     setResult(null);
     startTransition(async () => {
       const r = await runMatching(slotId);
+      // "new" is load-bearing: a re-run only seats people who joined since the
+      // last one, so this count is additions, not the slot's table total.
       setResult(
         r.ok
-          ? `${r.groups} group${r.groups === 1 ? "" : "s"} · flex: ${r.flex ? "yes" : "no"}` +
+          ? `${r.groups} new group${r.groups === 1 ? "" : "s"} · flex: ${r.flex ? "yes" : "no"}` +
+              (r.groups && r.matcher === "fallback" ? " · NOT matched by interest" : "") +
+              (r.alreadySeated ? ` · ${r.alreadySeated} already seated` : "") +
               (r.excluded ? ` · ${r.excluded} left unmatched (schedule)` : "")
           : `error: ${r.error}`,
       );

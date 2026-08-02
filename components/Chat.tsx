@@ -320,7 +320,7 @@ export default function Chat({
           ref={headBtnRef}
           className="head-id"
           onClick={() => setRosterOpen(true)}
-          aria-label={`${members.length} people in your ${channelType === "ride" ? "ride" : "table"} — open roster`}
+          aria-label={`${members.length} people in your ${channelType === "ride" ? "ride" : "table"}, open roster`}
         >
           <span className="stack">
             {stack.map((m) => (
@@ -522,15 +522,18 @@ export default function Chat({
                 <span className="plan-line">{meetLine}</span>
               </div>
             )}
-            {channelType === "meal" && (
-              <Link
-                href={`/groups/${groupId}`}
-                className="sheet-link"
-                onClick={() => setRosterOpen(false)}
-              >
-                See full profiles ▸
-              </Link>
-            )}
+            {/* Both channel types get a way out of the thread, they just lead
+                somewhere different. A table has a reveal screen of its own; a
+                ride's details live on the Rides segment of 매칭, so send it
+                there with the segment already selected rather than to
+                /groups/<poolId>, which is not a group and would 404. */}
+            <Link
+              href={channelType === "meal" ? `/groups/${groupId}` : "/matching?tab=rides"}
+              className="sheet-link"
+              onClick={() => setRosterOpen(false)}
+            >
+              {channelType === "meal" ? "See full profiles ▸" : "See ride details ▸"}
+            </Link>
             <button className="sheet-close" onClick={() => setRosterOpen(false)}>
               Close
             </button>
@@ -540,7 +543,7 @@ export default function Chat({
 
       <style>{`
         /* Standalone route (no TabBar/.app-main), so this needs its own
-           width cap — otherwise messages/composer stretch edge-to-edge on a
+           width cap, otherwise messages/composer stretch edge-to-edge on a
            wide screen while every other page is capped at 720px. */
         .chat-root { display: flex; flex-direction: column; height: 100dvh; max-width: 720px; margin: 0 auto; }
 

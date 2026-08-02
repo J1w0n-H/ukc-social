@@ -4,12 +4,24 @@ import { MealsListSection } from "../meals/page";
 import { RidesListSection } from "../rides/page";
 import MatchingTabs from "@/components/MatchingTabs";
 
-export default async function MatchingPage() {
+export default async function MatchingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const supabase = (await requireUser()).supabase;
-  const [conference, meals, rides] = await Promise.all([
+  const [{ tab }, conference, meals, rides] = await Promise.all([
+    searchParams,
     getConference(supabase),
     MealsListSection(),
     RidesListSection(),
   ]);
-  return <MatchingTabs kicker={conference?.name ?? "Icebreaker"} meals={meals} rides={rides} />;
+  return (
+    <MatchingTabs
+      kicker={conference?.name ?? "Icebreaker"}
+      meals={meals}
+      rides={rides}
+      initialTab={tab === "rides" ? "rides" : "meals"}
+    />
+  );
 }

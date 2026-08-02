@@ -77,7 +77,7 @@ export default function RidePoolCard({
           <div className="rpc-time">{fmt.format(new Date(pool.pickupAt))}</div>
           <div className="rpc-count">
             {pool.members.length === 0
-              ? "Just you so far — more may join before your flight."
+              ? "Just you so far. More may join before your flight."
               : `You + ${pool.members.length} ${pool.members.length === 1 ? "other" : "others"}`}
           </div>
           {pool.members.map((m) => (

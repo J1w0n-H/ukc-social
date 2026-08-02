@@ -1,5 +1,9 @@
 // lib/matching.ts
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+
+// Interest matching runs on OpenAI. Verified against the account's model list
+// rather than assumed: `gpt-5.6-luna` is a real id on this key.
+const MATCH_MODEL = "gpt-5.6-luna";
 
 export type SignupProfile = { userId: string; name: string; school: string;
   position: string; interests: string[]; partySize?: number; notes?: string };
@@ -93,7 +97,7 @@ export function repackInvalid(
 }
 
 // Pure + exported so the prompt text is unit-testable without hitting the
-// Anthropic API. `eventName` comes from the admin-registered `conferences`
+// OpenAI API. `eventName` comes from the admin-registered `conferences`
 // row (lib/conference.ts) — generic fallback if unset. No `location`/place:
 // where to actually meet is left to the group, not invented by the LLM —
 // see docs/HANDOFF.md for why (an earlier version asked for a "suggested
@@ -105,45 +109,76 @@ export function buildMatchPrompt(
 ): string {
   const { min, max, eventName } = opts;
   const event = eventName || "conference";
-  return `Group these ${event} attendees into dinner tables by shared research interests and vibe. Each table must seat ${min}-${max} people TOTAL. IMPORTANT: an attendee with "comesWithGroupOf": N arrives with a party of N people (including themselves) — count them as N seats and keep that whole party at one table. Every attendee appears in EXACTLY one group. Give each group a short fun name, a one-sentence "why you matched" rationale (warm, specific, mention shared interests), and a fun icebreaker question the table could open with — grounded in what they actually have in common, not generic small talk.\n\nAttendees:\n${JSON.stringify(roster, null, 1)}`;
+  return `Group these ${event} attendees into dinner tables by shared research interests and vibe. Each table must seat ${min}-${max} people TOTAL. IMPORTANT: an attendee with "comesWithGroupOf": N arrives with a party of N people (including themselves), so count them as N seats and keep that whole party at one table. Every attendee appears in EXACTLY one group. Give each group a short fun name, a one-sentence "why you matched" rationale (warm, specific, mention shared interests), and a fun icebreaker question the table could open with, grounded in what they actually have in common, not generic small talk.\n\nWrite the rationale and the question in plain sentences. Do not use em dashes; use a comma, a period, or "and" instead. Both strings are shown to attendees as-is.\n\nAttendees:\n${JSON.stringify(roster, null, 1)}`;
 }
 
-const TOOL = {
-  name: "submit_groups",
-  description: "Submit the final grouping",
-  input_schema: {
-    type: "object" as const,
-    properties: { groups: { type: "array", items: { type: "object", properties: {
-      memberIds: { type: "array", items: { type: "string" } },
-      name: { type: "string" }, rationale: { type: "string" },
-      starterQuestion: { type: "string" } },
-      required: ["memberIds", "name", "rationale", "starterQuestion"] } } },
-    required: ["groups"] },
+// Structured Outputs in strict mode, which is why every object carries
+// additionalProperties: false and lists every property in `required`. The API
+// rejects the schema otherwise. This replaces a forced tool call and buys the
+// same thing: the model cannot return a shape we then have to parse defensively.
+const SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["groups"],
+  properties: {
+    groups: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["memberIds", "name", "rationale", "starterQuestion"],
+        properties: {
+          memberIds: { type: "array", items: { type: "string" } },
+          name: { type: "string" },
+          rationale: { type: "string" },
+          starterQuestion: { type: "string" },
+        },
+      },
+    },
+  },
 };
 
 export async function matchSlot(signups: SignupProfile[],
   opts: { min?: number; max?: number; model?: string; eventName?: string } = {}): Promise<MatchGroup[]> {
-  const { min = 4, max = 6, model = "claude-sonnet-5", eventName } = opts;
+  const { min = 4, max = 6, model = MATCH_MODEL, eventName } = opts;
   // Nothing to match — skip the API call for a trivially empty roster. Every
   // *real* slot (however small) still runs the interest-aware LLM path below;
   // round-robin is reserved for genuine failure, not "small headcount."
   if (signups.length === 0) return roundRobinGroups(signups);
   const sizes = new Map(signups.map(s => [s.userId, s.partySize ?? 1]));
-  const client = new Anthropic();
+  // Constructed here, not at module scope: it throws when OPENAI_API_KEY is
+  // missing, and inside the function that surfaces as a caught fallback rather
+  // than an import-time crash.
+  const client = new OpenAI();
   const ids = signups.map(s => s.userId);
   const roster = signups.map(s => (s.partySize ?? 1) > 1
     ? { ...s, comesWithGroupOf: s.partySize } : s);
   const prompt = buildMatchPrompt(roster, { min, max, eventName });
   let lastGroups: MatchGroup[] | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await client.messages.create({ model, max_tokens: 4096,
-      tools: [TOOL], tool_choice: { type: "tool", name: "submit_groups" },
-      messages: [{ role: "user", content: prompt }] });
-    const call = res.content.find(b => b.type === "tool_use");
-    if (call && call.type === "tool_use") {
-      const groups = (call.input as { groups: MatchGroup[] }).groups;
-      if (validateAssignment(ids, groups, min, max, sizes).ok) return groups;
-      lastGroups = groups; // keep the last attempt around in case both fail
+    const res = await client.chat.completions.create({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "submit_groups", strict: true, schema: SCHEMA },
+      },
+    });
+    const body = res.choices[0]?.message?.content;
+    if (body) {
+      // Strict mode guarantees the shape, but a refusal or a truncated
+      // response still lands here, so a parse failure falls through to the
+      // next attempt rather than taking down the whole slot.
+      let groups: MatchGroup[] | null = null;
+      try {
+        groups = (JSON.parse(body) as { groups: MatchGroup[] }).groups;
+      } catch {
+        groups = null;
+      }
+      if (groups) {
+        if (validateAssignment(ids, groups, min, max, sizes).ok) return groups;
+        lastGroups = groups; // keep the last attempt around in case both fail
+      }
     }
   }
   // ponytail: after 2 tries, keep whatever tables were already valid from the

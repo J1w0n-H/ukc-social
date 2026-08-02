@@ -144,7 +144,7 @@ export default function ProfileEditor({
       const leftPreviousPool =
         ("leftPreviousPool" in arrivalRes && arrivalRes.leftPreviousPool) ||
         ("leftPreviousPool" in departureRes && departureRes.leftPreviousPool);
-      flash(leftPreviousPool ? "Saved — your old ride group was notified you left" : "Saved");
+      flash(leftPreviousPool ? "Saved. Your old ride group was notified you left" : "Saved");
 
       // No one to propose joining — open your own pool right away rather
       // than leaving the flight saved with no pool at all (nothing else
@@ -230,11 +230,20 @@ export default function ProfileEditor({
           </p>
         )}
 
-        {(fmtFlight(flight.arrival) || fmtFlight(flight.departure)) && (
+        {/* Reads initialFlight (what's actually saved), NOT `flight`. That state is
+            seeded with flightDefaults so the datetime pickers open on a sensible date,
+            and rendering it here claimed a flight the user never posted. router.refresh()
+            after save re-renders this from the server, so it stays current. */}
+        {(fmtFlight(initialFlight.arrival) || fmtFlight(initialFlight.departure)) && (
           <p style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 14 }}>
-            ✈ {fmtFlight(flight.arrival) ? `Landing ${fmtFlight(flight.arrival)}` : "No arrival set"}
+            ✈{" "}
+            {fmtFlight(initialFlight.arrival)
+              ? `Landing ${fmtFlight(initialFlight.arrival)}`
+              : "No arrival set"}
             {" · "}
-            {fmtFlight(flight.departure) ? `Leaving ${fmtFlight(flight.departure)}` : "No departure set"}
+            {fmtFlight(initialFlight.departure)
+              ? `Leaving ${fmtFlight(initialFlight.departure)}`
+              : "No departure set"}
           </p>
         )}
 
@@ -374,7 +383,7 @@ export default function ProfileEditor({
 
       <Label>Flights</Label>
       <p style={{ fontSize: 12, color: "var(--ink-2)", marginTop: -2, marginBottom: 4 }}>
-        Just the time — matched with others flying near the same window on{" "}
+        Just the time, matched with others flying near the same window on{" "}
         <a href="/rides" style={{ color: "var(--accent)", fontWeight: 600 }}>
           Rides
         </a>

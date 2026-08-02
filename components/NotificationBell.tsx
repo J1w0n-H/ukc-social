@@ -12,16 +12,30 @@ type Notification = {
   created_at: string;
 };
 
+// Where each notification lands. Two rules behind these:
+//
+// "Your table is set" goes to the reveal screen, not straight into the chat.
+// The reveal is the only place that answers who you're sitting with and why you
+// were put together, and it carries the icebreaker question. Dropping someone
+// into a silent thread with five strangers skips exactly the context that makes
+// the first message possible.
+//
+// Anything ride-shaped goes to 매칭 with the Rides segment already open. A new
+// ride message opens the thread itself, the same as a table message does, rather
+// than the list it came from.
 const COPY: Record<Notification["type"], { text: string; href: (p: Record<string, unknown>) => string }> = {
-  table_revealed: { text: "Your table is set — say hi.", href: (p) => `/groups/${p.group_id}/chat` },
-  ride_matched: { text: "Someone joined your ride.", href: () => "/rides" },
+  table_revealed: { text: "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
+  ride_matched: { text: "Someone joined your ride.", href: () => "/matching?tab=rides" },
   hi_received: { text: "Someone said hi to you.", href: () => "/home" },
   new_message: {
     text: "New message.",
-    href: (p) => (p.channel_type === "meal" ? `/groups/${p.channel_id}/chat` : "/rides"),
+    href: (p) =>
+      p.channel_type === "meal"
+        ? `/groups/${p.channel_id}/chat`
+        : `/rides/${p.channel_id}/chat`,
   },
-  announcement: { text: "New announcement.", href: () => "/board" },
-  ride_member_left: { text: "Someone left your ride.", href: () => "/rides" },
+  announcement: { text: "New announcement.", href: () => "/schedule" },
+  ride_member_left: { text: "Someone left your ride.", href: () => "/matching?tab=rides" },
 };
 
 export default function NotificationBell() {
@@ -32,6 +46,11 @@ export default function NotificationBell() {
 
   useEffect(() => {
     let active = true;
+    // Held outside the async body so the effect's own cleanup can reach it.
+    // Returning a cleanup from the inner function only returns it to the
+    // function, and React never sees it.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     (async () => {
       const {
         data: { user },
@@ -46,7 +65,8 @@ export default function NotificationBell() {
         .limit(30);
       if (active) setItems((data as Notification[]) ?? []);
 
-      const channel = supabase
+      if (!active) return;
+      channel = supabase
         .channel(`notif-${user.id}`)
         .on(
           "postgres_changes",
@@ -57,12 +77,11 @@ export default function NotificationBell() {
           },
         )
         .subscribe();
-      return () => {
-        supabase.removeChannel(channel);
-      };
     })();
+
     return () => {
       active = false;
+      if (channel) supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

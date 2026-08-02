@@ -35,6 +35,7 @@ type TableMember = {
   position: string;
   interests: string[];
 };
+type RideStatus = { title: string; benefit: string };
 type TableCard = {
   groupId: string;
   tableName: string;
@@ -127,10 +128,53 @@ export default async function HomePage() {
     }
   }
 
-  // Has the user posted a flight? (flights table may not exist yet → nudge shows.)
-  let hasFlight = false;
+  // Ride state. "Split a ride from the airport" is only the right row until you
+  // post a flight; after that Home went silent on rides entirely, which is
+  // exactly when there's something to say. So: nudge if no flight, pool summary
+  // if you're in one, waiting line if you posted and nobody's matched yet.
+  // (flights table may not exist yet → falls back to the nudge.)
+  let ride: RideStatus | null = null;
   const fl = await supabase.from("flights").select("id").eq("user_id", user.id).limit(1);
-  if (!fl.error && fl.data && fl.data.length) hasFlight = true;
+  const hasFlight = !fl.error && !!fl.data?.length;
+
+  if (hasFlight) {
+    const { data: mem } = await supabase.from("ride_members").select("pool_id").eq("user_id", user.id);
+    const poolIds = (mem ?? []).map((m) => m.pool_id as string);
+
+    if (poolIds.length) {
+      const { data: pools } = await supabase
+        .from("ride_pools")
+        .select("id, pickup_at")
+        .in("id", poolIds);
+      const { data: riders } = await supabase
+        .from("ride_members")
+        .select("pool_id")
+        .in("pool_id", poolIds);
+
+      const sizeByPool = new Map<string, number>();
+      for (const r of riders ?? []) {
+        const id = r.pool_id as string;
+        sizeByPool.set(id, (sizeByPool.get(id) ?? 0) + 1);
+      }
+      // The ride still ahead of you, or the most recent one if they've all gone.
+      const sorted = (pools ?? []).sort((a, b) => ms(a.pickup_at as string) - ms(b.pickup_at as string));
+      const next = sorted.find((p) => ms(p.pickup_at as string) >= now) ?? sorted[sorted.length - 1];
+      // A pool of one is a pool matching made for you that nobody has joined,
+      // which is the waiting state, not a ride. Only report a ride once there
+      // is someone else in it.
+      const size = next ? (sizeByPool.get(next.id as string) ?? 1) : 0;
+      if (next && size > 1) {
+        ride = {
+          title: `Riding with ${size - 1} other${size > 2 ? "s" : ""}`,
+          benefit: `Pickup ${timeFmt.format(new Date(next.pickup_at as string))}. Tap for who and where.`,
+        };
+      }
+    }
+    ride ??= {
+      title: "Waiting on a ride-mate",
+      benefit: "Your flight is in. We'll pair you as soon as someone lands near your time.",
+    };
+  }
 
   // 친구 tab shows only people you actually share a group with — not the full
   // directory (that's "Meet other participants", which links to /people and
@@ -182,7 +226,7 @@ export default async function HomePage() {
             myInterests={myInterests}
             timezone={conference?.timezone ?? "America/New_York"}
           />
-          <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
+          <FillInHub dinner={dinnerDone ? null : dinnerHook} ride={ride} />
         </>
       ) : (
         <>
@@ -191,7 +235,7 @@ export default async function HomePage() {
           ) : (
             <Fresh name={profile.name} conferenceName={conference?.name} />
           )}
-          <FillInHub dinner={dinnerDone ? null : dinnerHook} hasFlight={hasFlight} />
+          <FillInHub dinner={dinnerDone ? null : dinnerHook} ride={ride} />
           <GroupmatesSection
             tables={tables}
             nextGroupId={null}
@@ -234,10 +278,10 @@ const ICONS = {
 // payoff, so Home stays a place to act rather than a wall of text.
 function FillInHub({
   dinner,
-  hasFlight,
+  ride,
 }: {
   dinner: { title: string; count: number } | null;
-  hasFlight: boolean;
+  ride: RideStatus | null;
 }) {
   const rows: ReactNode[] = [];
 
@@ -259,17 +303,28 @@ function FillInHub({
       benefit="See who's coming and reach out before you arrive."
     />,
   );
-  if (!hasFlight) {
-    rows.push(
+  rows.push(
+    ride ? (
+      // Posted a flight, so the row reports where the ride stands instead of
+      // pitching a thing you've already done. Goes to 매칭's Rides segment,
+      // which is where the riders and the pickup time actually live.
+      <NudgeRow
+        key="rides"
+        href="/matching?tab=rides"
+        icon={ICONS.ride}
+        title={ride.title}
+        benefit={ride.benefit}
+      />
+    ) : (
       <NudgeRow
         key="rides"
         href="/me"
         icon={ICONS.ride}
         title="Split a ride from the airport"
         benefit="$60 alone. About $20 each when you share."
-      />,
-    );
-  }
+      />
+    ),
+  );
 
   return (
     <div style={{ marginTop: 32 }}>
@@ -316,7 +371,7 @@ function GroupmatesSection({
       <div className="hub-head">Your tables</div>
       {tables.length === 0 ? (
         <p style={{ fontSize: 14, color: "var(--ink-2)", marginTop: 8 }}>
-          No one yet — join a dinner and get matched to see your tablemates here.
+          No one yet. Join a dinner and get matched to see your tablemates here.
         </p>
       ) : (
         tables.map((t) => (
@@ -326,7 +381,12 @@ function GroupmatesSection({
                 {t.groupId === nextGroupId && (
                   <div className="table-card__next">{dayOf ? "Tonight" : "Next up"}</div>
                 )}
-                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{t.tableName}</div>
+                {/* The name opens the reveal (who's at the table and why it was
+                    put together); the button on the right goes straight to the
+                    thread. Two different intentions, so two destinations. */}
+                <Link href={`/groups/${t.groupId}`} className="table-card__name">
+                  {t.tableName}
+                </Link>
                 <div style={{ fontSize: 13, color: "var(--ink-2)", marginTop: 2 }}>
                   {t.slot.title} · {dfmt.format(new Date(t.slot.starts_at))} ·{" "}
                   {fmt.format(new Date(t.slot.starts_at))}
@@ -350,7 +410,7 @@ function GroupmatesSection({
 
             {t.members.length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 10 }}>
-                Just you so far — more may join before tables lock in.
+                Just you so far. More may join before tables lock in.
               </p>
             ) : (
               t.members.map((p) => {
@@ -579,7 +639,10 @@ function LinkStyles() {
       }
       .hub-list { border-bottom: 1px solid var(--line); }
       .table-card__next {
-        display: inline-block;
+        /* block, so the badge keeps its own line above the table name. The
+           name is inline-block (it is a link sized to its text), and two
+           inline-blocks in a row render as "NEXT UPCross-Pollinators". */
+        display: block;
         font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
@@ -599,6 +662,13 @@ function LinkStyles() {
         align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
+      }
+      .table-card__name {
+        display: inline-block;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--ink);
+        text-decoration: none;
       }
       .table-card__chat {
         flex-shrink: 0;

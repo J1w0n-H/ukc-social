@@ -80,7 +80,7 @@ export default function GoingSheet({
         className="going-sheet"
         role="dialog"
         aria-modal="true"
-        aria-label={`${slot.title} — you're going`}
+        aria-label={`${slot.title}, you're going`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="going-grabber" aria-hidden="true" />
@@ -88,7 +88,8 @@ export default function GoingSheet({
         <p className="going-kicker">You&apos;re in</p>
         <h2 className="going-title">{slot.title}</h2>
         <p className="going-sub">
-          {dtf.format(new Date(slot.starts_at))} · {slot.area}
+          {dtf.format(new Date(slot.starts_at))}
+          {slot.area ? ` · ${slot.area}` : ""}
         </p>
 
         {groupId ? (
