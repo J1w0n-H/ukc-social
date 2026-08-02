@@ -26,6 +26,7 @@ export default function AdminSlotRow({
       setResult(
         r.ok
           ? `${r.groups} new group${r.groups === 1 ? "" : "s"} · flex: ${r.flex ? "yes" : "no"}` +
+              (r.groups && r.matcher === "fallback" ? " · NOT matched by interest" : "") +
               (r.alreadySeated ? ` · ${r.alreadySeated} already seated` : "") +
               (r.excluded ? ` · ${r.excluded} left unmatched (schedule)` : "")
           : `error: ${r.error}`,

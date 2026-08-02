@@ -22,6 +22,11 @@ export type Result = {
   flex?: boolean;
   excluded?: number;
   alreadySeated?: number;
+  // How the tables were actually built. "fallback" means nobody was seated by
+  // interest, which looks identical to success from the outside: tables exist,
+  // they are the right size, and every rationale reads "Grouped to keep tables
+  // even." with no icebreaker question. The admin needs to be told.
+  matcher?: "interests" | "fallback";
   error?: string;
 };
 type Svc = ReturnType<typeof serviceClient>;
@@ -102,8 +107,12 @@ export async function matchOneSlot(
     groups = await matchSlot(signups, {
       eventName: conference?.name,
     });
-  } catch {
-    groups = roundRobinGroups(signups); // ponytail: falls back on missing ANTHROPIC_API_KEY
+  } catch (e) {
+    // Log it. A missing or empty OPENAI_API_KEY lands here, and swallowing
+    // the error silently is how every table in this deployment ended up
+    // round-robin without anyone noticing.
+    console.error("[matching] interest matching failed, falling back:", e);
+    groups = roundRobinGroups(signups);
   }
   // Validate by headcount (a party of 3 weighs 3), matching matchSlot's own check.
   // Keeps whatever tables are already valid, only re-packing the ones that aren't
@@ -119,6 +128,7 @@ export async function matchOneSlot(
     signups.map((s) => [s.userId, { interests: s.interests, position: s.position }]),
   );
   const llmGroups = groups.filter((g) => g.rationale !== ROUND_ROBIN_RATIONALE);
+  const matcher = llmGroups.length ? "interests" : "fallback";
   const llmNames = nameGroups(llmGroups, profileMap);
   let llmIdx = 0;
   const names = groups.map((g) =>
@@ -158,7 +168,7 @@ export async function matchOneSlot(
   // Flex = some table seats fewer than 4 by headcount (an unavoidable small table).
   const flex =
     groups.length > 0 && Math.min(...groups.map((g) => headcount(g.memberIds))) < 4;
-  return { ok: true, groups: groups.length, flex, excluded, alreadySeated };
+  return { ok: true, groups: groups.length, flex, excluded, alreadySeated, matcher };
 }
 
 // Runs matching for every slot, used by the auto-match cron route

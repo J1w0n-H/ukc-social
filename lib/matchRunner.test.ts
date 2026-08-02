@@ -139,6 +139,17 @@ describe("matchOneSlot seating", () => {
     expect(calls.filter((c) => c.op === "insert")).toEqual([]);
   });
 
+  // matchSlot is mocked to throw for this whole file, which is exactly the
+  // shape of a missing OPENAI_API_KEY. Every table comes out round-robin,
+  // and the result has to say so rather than looking like a clean run.
+  it("reports the fallback when nothing was matched by interest", async () => {
+    const { svc } = setup(8, []);
+    const r = await matchOneSlot(svc, SLOT, null);
+
+    expect(r.groups).toBeGreaterThan(0);
+    expect(r.matcher).toBe("fallback");
+  });
+
   it("counts schedule-excluded signups only among the unseated", async () => {
     const { svc } = makeSvc({
       "signups:select": {
