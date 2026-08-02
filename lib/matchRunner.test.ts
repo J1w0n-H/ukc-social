@@ -150,6 +150,39 @@ describe("matchOneSlot seating", () => {
     expect(r.matcher).toBe("fallback");
   });
 
+  // The live database had exactly one unseated person on three of four slots.
+  // Seating them would have produced a table of one and told a real person
+  // their table was set.
+  it("holds back a leftover too small to be a table, instead of seating one person", async () => {
+    const { svc, calls } = setup(6, ["u1", "u2", "u3", "u4", "u5"]);
+    const r = await matchOneSlot(svc, SLOT, null);
+
+    expect(r.ok).toBe(true);
+    expect(r.groups).toBe(0);
+    expect(r.waiting).toBe(1);
+    expect(calls.filter((c) => c.op === "insert")).toEqual([]);
+  });
+
+  it("seats the leftover once enough people are waiting", async () => {
+    const { svc, calls } = setup(9, ["u1", "u2", "u3", "u4", "u5"]);
+    const r = await matchOneSlot(svc, SLOT, null);
+
+    expect(r.groups).toBeGreaterThan(0);
+    expect(r.waiting).toBeUndefined();
+    expect(memberIds(calls).map((m) => m.user_id).sort()).toEqual(["u6", "u7", "u8", "u9"]);
+  });
+
+  // A slot's first run is not a leftover, it is the whole dinner, so a small
+  // turnout still gets seated.
+  it("still seats a small first run when the slot has no tables yet", async () => {
+    const { svc, calls } = setup(2, []);
+    const r = await matchOneSlot(svc, SLOT, null);
+
+    expect(r.groups).toBe(1);
+    expect(r.waiting).toBeUndefined();
+    expect(memberIds(calls).map((m) => m.user_id).sort()).toEqual(["u1", "u2"]);
+  });
+
   it("counts schedule-excluded signups only among the unseated", async () => {
     const { svc } = makeSvc({
       "signups:select": {

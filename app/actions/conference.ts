@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabase } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/isAdmin";
 import { serviceClient } from "@/lib/supabase/service";
 import { deriveSlots } from "@/lib/slots";
 
@@ -29,7 +30,7 @@ export async function upsertConference(fields: ConferenceInput): Promise<Result>
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || user.email !== process.env.ADMIN_EMAIL) return { ok: false, error: "forbidden" };
+  if (!(await isAdmin(user))) return { ok: false, error: "forbidden" };
 
   if (!fields.name.trim()) return { ok: false, error: "Name is required." };
   if (new Date(fields.starts_at) >= new Date(fields.ends_at))

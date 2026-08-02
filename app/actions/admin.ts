@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabase } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/isAdmin";
 import { serviceClient } from "@/lib/supabase/service";
 import { getConference } from "@/lib/conference";
 import { matchOneSlot, type Result } from "@/lib/matchRunner";
@@ -10,7 +11,7 @@ async function requireAdmin() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user && user.email === process.env.ADMIN_EMAIL;
+  return isAdmin(user);
 }
 
 export async function runMatching(slotId: string): Promise<Result> {
