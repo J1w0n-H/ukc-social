@@ -12,7 +12,11 @@ type Tab = { href: string; label: string; icon: React.ReactNode };
 // and one line of what's next. 일정 is the read-only conference program (the
 // announcement plus the full agenda). It used to be /board and used to be labeled
 // 홈, which is why the old route name and the old label disagreed.
-// /people has no tab of its own; 홈's "Meet other participants" row is the way in.
+// 친구 holds the people directory and the chat list behind one segment control,
+// the same arrangement 매칭 uses for Meals and Rides. People used to have no tab
+// at all and was reachable only through 홈's "Meet other participants" row, which
+// made the one screen about meeting people the hardest one to find. It leads
+// now; /people?tab=chat opens the conversation list.
 const tabs: Tab[] = [
   {
     href: "/schedule",
@@ -22,10 +26,10 @@ const tabs: Tab[] = [
     ),
   },
   {
-    href: "/chat",
-    label: "채팅",
+    href: "/people",
+    label: "친구",
     icon: (
-      <path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" />
+      <path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20M9 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM22 20v-1.5a4 4 0 0 0-3-3.87M16 3.63a4 4 0 0 1 0 7.75" />
     ),
   },
   {

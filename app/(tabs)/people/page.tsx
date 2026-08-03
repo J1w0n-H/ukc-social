@@ -1,6 +1,8 @@
 import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
 import PeopleBrowser from "@/components/PeopleBrowser";
+import PeopleChatTabs from "@/components/PeopleChatTabs";
+import { ChatListSection } from "../chat/page";
 
 // Just the data-dependent browser — shared by the standalone /people route
 // and the 친구 (Home) tab, which embeds it directly (see app/(tabs)/home/page.tsx).
@@ -37,18 +39,31 @@ export async function PeopleSection() {
   );
 }
 
-export default async function PeoplePage() {
+// The second tab in the bar. Holds the people browser and the chat list behind
+// one segment control, the same arrangement /matching uses for Meals | Rides.
+// People had no tab of its own before and was reachable only through 홈's
+// "Meet other participants" row, so it leads here; ?tab=chat opens the other
+// half directly.
+export default async function PeoplePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const supabase = (await requireUser()).supabase;
-  const conference = await getConference(supabase);
+  const [{ tab }, conference, people, chat] = await Promise.all([
+    searchParams,
+    getConference(supabase),
+    PeopleSection(),
+    ChatListSection(),
+  ]);
 
   return (
-    <section style={{ padding: "24px 20px" }}>
-      <header className="page-head">
-        <p className="page-kicker">{conference?.name ?? "Icebreaker"}</p>
-        <h1 className="page-title">People</h1>
-        <p className="page-sub">Everyone here this week.</p>
-      </header>
-      <PeopleSection />
-    </section>
+    <PeopleChatTabs
+      kicker={conference?.name ?? "Icebreaker"}
+      people={people}
+      chat={chat.node}
+      unread={chat.unread}
+      initialTab={tab === "chat" ? "chat" : "people"}
+    />
   );
 }

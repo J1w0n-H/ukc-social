@@ -27,9 +27,13 @@ type MessageRow = { channel_id: string; body: string; created_at: string };
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
-export default async function ChatIndexPage() {
+// Just the data-dependent list, the same shape MealsListSection/RidesListSection
+// already use, so the combined 친구 tab can render it beside the people browser
+// without a second implementation. Returns the unread total alongside the node:
+// chat is no longer the default segment, so that count has to reach the segment
+// label or it would sit one tap out of sight.
+export async function ChatListSection(): Promise<{ node: React.ReactNode; unread: number }> {
   const { user, supabase } = await requireUser();
-  const conference = await getConference(supabase);
 
   const { data: groupRows } = await supabase
     .from("group_members")
@@ -125,14 +129,8 @@ export default async function ChatIndexPage() {
       a.name.localeCompare(b.name),
   );
 
-  return (
-    <section style={{ padding: "24px 20px" }}>
-      <header className="page-head">
-        <p className="page-kicker">{conference?.name ?? "Icebreaker"}</p>
-        <h1 className="page-title">Chat</h1>
-        <p className="page-sub">Every table and ride you&apos;re part of.</p>
-      </header>
-
+  const node = (
+    <>
       {rows.length === 0 ? (
         <p style={{ color: "var(--ink-2)", fontSize: 15, paddingTop: 8 }}>
           No conversations yet. Join a dinner or ride to start one.
@@ -195,6 +193,30 @@ export default async function ChatIndexPage() {
           ))}
         </div>
       )}
+    </>
+  );
+
+  // Tables only. Ride threads carry no read marker yet (see the note above), so
+  // counting them would mean counting every ride message forever.
+  const unread = tableRows.reduce((n, r) => n + (r.unread ?? 0), 0);
+  return { node, unread };
+}
+
+// Standalone route, kept for direct links. The tab bar points at /people, which
+// renders this same section beside the people browser.
+export default async function ChatIndexPage() {
+  const supabase = (await requireUser()).supabase;
+  const conference = await getConference(supabase);
+  const { node } = await ChatListSection();
+
+  return (
+    <section style={{ padding: "24px 20px" }}>
+      <header className="page-head">
+        <p className="page-kicker">{conference?.name ?? "Icebreaker"}</p>
+        <h1 className="page-title">Chat</h1>
+        <p className="page-sub">Every table and ride you&apos;re part of.</p>
+      </header>
+      {node}
     </section>
   );
 }
