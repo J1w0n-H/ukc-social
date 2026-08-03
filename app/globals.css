@@ -63,7 +63,11 @@ body {
    column and the progress bar with it came out barely half the width of the
    other four steps. .app-main already carries its own width: 100% for the same
    reason. */
-body > main {
+/* .chat-root is here for the same reason. It is a div rather than a main, so
+   the selector missed it, and the chat screen sat at 372px at every width
+   while the tab pages were 390 on a phone and 784 on a desktop. */
+body > main,
+body > .chat-root {
   width: 100%;
 }
 

@@ -223,6 +223,23 @@ export default function Chat({
     if (nearBottom.current) bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages, loading]);
 
+  // Follow the on-screen keyboard. `interactive-widget=resizes-content` (see
+  // app/layout.tsx) shrinks the viewport when the keyboard opens, but the
+  // scroll area keeps its old offset, so the message you were reading ends up
+  // above the fold. iOS Safari is also inconsistent about honouring the meta at
+  // all, and visualViewport fires either way, which is why this is here rather
+  // than left to CSS. Only pulls down if you were already at the bottom, same
+  // rule as the effect above.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      if (nearBottom.current) bottomRef.current?.scrollIntoView({ block: "end" });
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
+
   function onScroll() {
     const el = scrollRef.current;
     if (!el) return;
