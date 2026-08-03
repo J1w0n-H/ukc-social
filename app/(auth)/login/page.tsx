@@ -14,7 +14,6 @@ function friendly(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes("provider is not enabled") || m.includes("unsupported provider"))
     return "Google sign-in isn't switched on yet. Use email for now.";
-  if (m.includes("anonymous")) return "Guest mode isn't switched on yet. Sign in with email.";
   if (m.includes("invalid login credentials")) return "That email and password don't match.";
   if (m.includes("email not confirmed")) return "Confirm your email first. Check your inbox.";
   if (m.includes("already registered")) return "That email already has an account. Sign in instead.";
@@ -29,7 +28,7 @@ function LoginInner() {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState<null | "email" | "google" | "guest" | "resend">(null);
+  const [busy, setBusy] = useState<null | "email" | "google" | "resend">(null);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState(params.get("error") === "auth" ? "That link didn't work. Try again." : "");
   const [cooldown, setCooldown] = useState(0);
@@ -83,19 +82,6 @@ function LoginInner() {
       setBusy(null);
     }
     // On success the browser redirects to Google; nothing else to do.
-  }
-
-  async function asGuest() {
-    setBusy("guest");
-    setError("");
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) {
-      setError(friendly(error.message));
-      setBusy(null);
-      return;
-    }
-    router.push("/people");
-    router.refresh();
   }
 
   async function submit(e: React.FormEvent) {
@@ -240,10 +226,6 @@ function LoginInner() {
         </button>
       </p>
 
-      <button type="button" className="au-guest" onClick={asGuest} disabled={!!busy}>
-        {busy === "guest" ? "Looking around…" : "Look around first →"}
-      </button>
-
       <AuthStyles />
     </Shell>
   );
@@ -333,12 +315,6 @@ function AuthStyles() {
         background: none; border: none; padding: 0; cursor: pointer;
         color: var(--accent); font-size: inherit; font-weight: 600;
       }
-      .au-guest {
-        display: block; margin: 26px auto 0; min-height: 44px;
-        background: none; border: none; cursor: pointer;
-        color: var(--ink-3); font-size: 14px; font-weight: 600;
-      }
-      .au-guest:hover:not(:disabled) { color: var(--ink-2); }
       .au-card {
         margin-top: 24px; padding: 18px 20px;
         border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
