@@ -24,12 +24,20 @@ type Notification = {
 // Anything ride-shaped goes to 매칭 with the Rides segment already open. A new
 // ride message opens the thread itself, the same as a table message does, rather
 // than the list it came from.
-// A notification carries the actor's name in its payload (see app/actions/hi.ts)
-// so these can address a person rather than "Someone". Older rows predate that
-// and fall back, which is why `who` exists instead of reading payload.from_name
-// directly.
-const who = (p: Record<string, unknown>, fallback = "Someone") =>
-  typeof p.from_name === "string" && p.from_name.trim() ? p.from_name.trim() : fallback;
+
+// The actor's name. Notifications written since app/actions/hi.ts started
+// storing it carry from_name; older ones carry only from_user_id, so those are
+// looked up once from the roster and passed in here. "Someone" is the last
+// resort, for a row with neither.
+const who = (
+  p: Record<string, unknown>,
+  names?: Map<string, string>,
+  fallback = "Someone",
+) => {
+  if (typeof p.from_name === "string" && p.from_name.trim()) return p.from_name.trim();
+  const id = typeof p.from_user_id === "string" ? p.from_user_id : null;
+  return (id && names?.get(id)) || fallback;
+};
 
 // The second line, and only when there is something true to say. A shared
 // interest is written into the payload when the notification fires (see
@@ -45,7 +53,7 @@ const sharedLine = (p: Record<string, unknown>): string | null => {
 const COPY: Record<
   Notification["type"],
   {
-    text: (p: Record<string, unknown>) => string;
+    text: (p: Record<string, unknown>, names?: Map<string, string>) => string;
     sub?: (p: Record<string, unknown>) => string | null;
     href: (p: Record<string, unknown>) => string;
   }
@@ -53,12 +61,12 @@ const COPY: Record<
   table_revealed: { text: () => "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
   ride_matched: { text: () => "Someone joined your ride.", href: () => "/matching?tab=rides" },
   hi_received: {
-    text: (p) => `${who(p)} requested you as a friend.`,
+    text: (p, names) => `${who(p, names)} requested you as a friend.`,
     sub: sharedLine,
     href: () => "/people",
   },
   friend_accepted: {
-    text: (p) => `You just connected with ${who(p)}.`,
+    text: (p, names) => `You just connected with ${who(p, names)}.`,
     sub: sharedLine,
     // Notifications written before migration 0024 carry only request_id. That
     // path still resolves, it just redirects, so old rows keep working.
@@ -81,6 +89,10 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const unread = items.filter((n) => !n.read_at).length;
   const pathname = usePathname();
+  // Names for older notifications whose payload predates from_name. Read from
+  // directory_profiles, which is public roster data, so this needs no special
+  // grant and works for a request you have not accepted.
+  const [names, setNames] = useState<Map<string, string>>(new Map());
 
   // Close on navigation. Following a notification already closed the panel,
   // but the bell lives in the status bar and so outlives every page under it:
@@ -109,7 +121,25 @@ export default function NotificationBell() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(30);
-      if (active) setItems((data as Notification[]) ?? []);
+      const rows = (data as Notification[]) ?? [];
+      if (active) setItems(rows);
+
+      const missing = [
+        ...new Set(
+          rows
+            .filter((n) => !n.payload.from_name && typeof n.payload.from_user_id === "string")
+            .map((n) => n.payload.from_user_id as string),
+        ),
+      ];
+      if (missing.length) {
+        const { data: profs } = await supabase
+          .from("directory_profiles")
+          .select("id, name")
+          .in("id", missing);
+        if (active && profs) {
+          setNames(new Map(profs.map((p) => [p.id as string, p.name as string])));
+        }
+      }
 
       if (!active) return;
       channel = supabase
@@ -181,7 +211,7 @@ export default function NotificationBell() {
                 onClick={() => setOpen(false)}
                 style={{ opacity: n.read_at ? 0.6 : 1 }}
               >
-                <span className="notif-line">{COPY[n.type].text(n.payload)}</span>
+                <span className="notif-line">{COPY[n.type].text(n.payload, names)}</span>
                 {COPY[n.type].sub?.(n.payload) && (
                   <span className="notif-sub">{COPY[n.type].sub!(n.payload)}</span>
                 )}
