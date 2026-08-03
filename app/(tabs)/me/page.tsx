@@ -33,7 +33,7 @@ export default async function MePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, school, position, interests, bio, kakao, linkedin, dietary, photo_url")
+    .select("name, school, position, interests, bio, kakao, linkedin, instagram, dietary, photo_url")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile) redirect("/welcome");

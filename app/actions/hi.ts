@@ -25,9 +25,23 @@ export async function sendRequest(targetId: string): Promise<Result> {
     return { ok: false, error: error.message };
   }
 
-  await serviceClient()
-    .from("notifications")
-    .insert({ user_id: targetId, type: "hi_received", payload: { from_user_id: user.id } });
+  // Your own name, so the bell can say who asked instead of "Someone". Read
+  // through your session rather than service-role, since p_sel already lets you
+  // read your own row. Stored on the notification rather than resolved at
+  // render time: the bell shows thirty rows and would otherwise need a lookup
+  // per row, and a notification reads better as a record of what was true when
+  // it fired.
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  await serviceClient().from("notifications").insert({
+    user_id: targetId,
+    type: "hi_received",
+    payload: { from_user_id: user.id, from_name: me?.name || "" },
+  });
 
   return { ok: true };
 }
@@ -51,12 +65,22 @@ export async function respondToRequest(requestId: string, accept: boolean): Prom
   // Only acceptance is announced. Telling someone they were declined turns a
   // quiet no into a notification, and there is nothing for them to do about it.
   if (accept) {
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", user.id)
+      .maybeSingle();
     // slug is what the link needs (migration 0024). request_id stays alongside
     // it so the payload still identifies the row for anything that wants it.
     await serviceClient().from("notifications").insert({
       user_id: updated.from_user_id as string,
       type: "friend_accepted",
-      payload: { from_user_id: user.id, request_id: requestId, slug: updated.slug },
+      payload: {
+        from_user_id: user.id,
+        from_name: me?.name || "",
+        request_id: requestId,
+        slug: updated.slug,
+      },
     });
   }
 
