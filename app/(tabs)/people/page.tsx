@@ -9,17 +9,30 @@ import { ChatListSection } from "../chat/page";
 export async function PeopleSection() {
   const { user, supabase } = await requireUser();
 
+  // Only people who have actually filled in a name. An account can exist from
+  // the moment it signs in, well before onboarding is finished, and those rows
+  // were listing as "Someone" with no school, position or interests: a row you
+  // cannot recognise, filter on, or say hi to with any idea who you are
+  // greeting. They come back the moment a name is saved.
+  //
+  // Filtered here rather than in the directory_profiles view, because the view
+  // also resolves member names for tables (홈) and rides. Hiding a nameless row
+  // there would drop that person out of their own ride roster, which is worse
+  // than showing a placeholder.
+  //
   // stay_start/stay_end may not exist yet (migration 0009 pending) → degrade
   // to no stay data rather than erroring the whole page.
   const { data: people, error } = await supabase
     .from("directory_profiles")
     .select("id, name, photo_url, school, position, interests, bio, stay_start, stay_end")
+    .neq("name", "")
     .order("name");
   let rows = people ?? [];
   if (error) {
     const fallback = await supabase
       .from("directory_profiles")
       .select("id, name, photo_url, school, position, interests, bio")
+      .neq("name", "")
       .order("name");
     rows = (fallback.data ?? []).map((p) => ({ ...p, stay_start: null, stay_end: null }));
   }
