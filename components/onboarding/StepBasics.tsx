@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { downscale } from "@/lib/avatar";
+import AvatarCropper from "@/components/AvatarCropper";
 
 type Basics = { name: string; school: string; position: string; birthday: string; photo_url: string };
 
@@ -30,14 +30,14 @@ export default function StepBasics({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [upload, setUpload] = useState<"idle" | "uploading" | "error">("idle");
+  // The picked file waits here while you frame it. Nothing is uploaded until
+  // the cropper hands back a square.
+  const [picked, setPicked] = useState<File | null>(null);
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  async function uploadBlob(blob: Blob) {
+    setPicked(null);
     setUpload("uploading");
     try {
-      const blob = await downscale(file);
       const supabase = createClient();
       const path = `${userId}/avatar.jpg`;
       const { error: upErr } = await supabase.storage
@@ -106,9 +106,16 @@ export default function StepBasics({
           type="file"
           accept="image/*"
           hidden
-          onChange={handleFile}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) setPicked(file);
+          }}
         />
       </div>
+      {picked && (
+        <AvatarCropper file={picked} onCancel={() => setPicked(null)} onDone={uploadBlob} />
+      )}
       {upload === "error" && (
         <p style={{ textAlign: "center", fontSize: 14, color: "var(--ink-2)", marginBottom: 4 }}>
           Upload failed.{" "}
