@@ -54,6 +54,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* body is `flex flex-col` (layout.tsx), so every page's <main> is a flex item.
+   Those pages center themselves with `margin: 0 auto`, and an auto cross-axis
+   margin cancels the default `align-items: stretch`. Without an explicit width
+   the item falls back to shrink-to-fit, so the page ends up as wide as its
+   widest line rather than as wide as its own max-width. Onboarding step 2 is
+   the case that showed it: its content is naturally ~246px, so the whole
+   column and the progress bar with it came out barely half the width of the
+   other four steps. .app-main already carries its own width: 100% for the same
+   reason. */
+body > main {
+  width: 100%;
+}
+
 h1,
 h2,
 h3 {
