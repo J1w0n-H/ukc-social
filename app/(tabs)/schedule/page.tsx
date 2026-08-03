@@ -29,13 +29,12 @@ export default async function BoardPage() {
         <h1 className="page-title">Schedule</h1>
       </header>
 
-      <div style={{ marginTop: 8 }}>
+      {/* The announcement is the organizers talking, so it is set as a line of
+          speech rather than parked in a bordered box. A rule underneath is what
+          separates it from the schedule, the same way 홈 separates its sections. */}
+      <div className="board-note">
         <div className="board-label">Announcement</div>
-        <div className="board-card">
-          <p style={{ fontSize: 15, color: "var(--ink)", lineHeight: 1.5, margin: 0, whiteSpace: "pre-wrap" }}>
-            {announcementBody}
-          </p>
-        </div>
+        <p className="board-note__body">{announcementBody}</p>
       </div>
 
       {/* No "Schedule" section label here: the page is already titled Schedule,
@@ -57,14 +56,19 @@ export default async function BoardPage() {
           color: var(--ink-3);
           margin-bottom: 8px;
         }
-        .board-card {
-          padding: 16px;
-          border: 1px solid var(--line);
-          border-radius: 14px;
+        .board-note {
+          margin-top: 8px;
+          padding-bottom: 22px;
+          border-bottom: 1px solid var(--line);
         }
-        .board-card--empty {
-          text-align: center;
-          padding: 28px 16px;
+        .board-note__body {
+          margin: 0;
+          font-size: 17px;
+          line-height: 1.5;
+          color: var(--ink);
+          white-space: pre-wrap;
+          text-wrap: pretty;
+          max-width: 60ch;
         }
       `}</style>
     </section>

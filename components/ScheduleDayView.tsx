@@ -32,11 +32,9 @@ export default function ScheduleDayView({
 
   if (days.length === 0) {
     return (
-      <div className="board-card board-card--empty">
-        <p style={{ fontSize: 14, color: "var(--ink-2)", margin: 0 }}>
-          The conference schedule hasn&apos;t been posted yet. Check back soon.
-        </p>
-      </div>
+      <p style={{ fontSize: 15, color: "var(--ink-2)", margin: 0, paddingTop: 4 }}>
+        The conference schedule hasn&apos;t been posted yet. Check back soon.
+      </p>
     );
   }
 
@@ -81,41 +79,20 @@ export default function ScheduleDayView({
           light days out to match only buys an empty box: those days already fit
           in the viewport without scrolling, so the reserved space does nothing.
           The date chips above are what keep you oriented. */}
-      <div className="board-card" style={{ padding: 0 }}>
-        {day.slots.map((slot, i) => {
+      <div className="sched-list">
+        {day.slots.map((slot) => {
           const current =
             isToday && now >= new Date(slot.starts_at).getTime() && now < new Date(slot.ends_at).getTime();
           return (
             <div
               key={`${slot.starts_at}|${slot.ends_at}`}
-              style={{
-                display: "flex",
-                gap: 14,
-                padding: "12px 16px",
-                borderTop: i === 0 ? "none" : "1px solid var(--line)",
-                background: current ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "none",
-              }}
+              className="sched-row"
+              data-current={current ? "true" : "false"}
             >
-              <div
-                style={{
-                  flexShrink: 0,
-                  width: 84,
-                  fontSize: 12,
-                  color: current ? "var(--accent)" : "var(--ink-3)",
-                  fontWeight: current ? 700 : 400,
-                  paddingTop: 1,
-                }}
-              >
-                {timeFmt.format(new Date(slot.starts_at))}
-              </div>
+              <div className="sched-time">{timeFmt.format(new Date(slot.starts_at))}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 {slot.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="sched-title"
-                    title={item.title}
-                    style={{ fontWeight: current ? 700 : 400 }}
-                  >
+                  <div key={item.id} className="sched-title" title={item.title}>
                     {item.title}
                   </div>
                 ))}
@@ -148,16 +125,29 @@ export default function ScheduleDayView({
           align-items: center;
           gap: 3px;
           padding: 8px 6px 6px;
-          border: 1px solid var(--line);
+          /* No border on the unselected days. Five outlined pills next to an
+             outlined note and an outlined table was the whole screen saying the
+             same thing eight times. The selected day is the only marked one,
+             which is also the only thing the row has to communicate. */
+          border: 1px solid transparent;
           border-radius: 12px;
           background: none;
+          /* --ink-2, not --ink-3: the weekday label is 11px, and --ink-3 sits
+             at 3.7:1 on this background, under the 4.5:1 small text needs. */
           color: var(--ink-2);
           cursor: pointer;
-          transition: background 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out;
+          transition: background 160ms ease-out, color 160ms ease-out;
+        }
+        .day-chip:hover:not([aria-selected="true"]) {
+          background: color-mix(in srgb, var(--ink) 6%, transparent);
+          color: var(--ink);
+        }
+        .day-chip:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
         .day-chip[aria-selected="true"] {
           background: var(--accent);
-          border-color: var(--accent);
           color: var(--accent-ink);
         }
         .day-chip__wd {
@@ -177,6 +167,40 @@ export default function ScheduleDayView({
         .day-chip[aria-selected="true"] .day-chip__today[data-today="true"] {
           background: var(--accent-ink);
         }
+
+        /* Hairline-separated rows and no surrounding card, the same list idiom
+           홈 already uses for "Line these up". An agenda is a list, and the
+           border it had was drawing a box around something that reads better
+           as a run of times. */
+        .sched-list { border-bottom: 1px solid var(--line); }
+        .sched-row {
+          display: flex;
+          gap: 14px;
+          padding: 13px 2px;
+          border-top: 1px solid var(--line);
+        }
+        /* Whatever is on right now. The tint is the state, and the accent time
+           plus heavier title carry it without needing a container. */
+        .sched-row[data-current="true"] {
+          background: color-mix(in srgb, var(--accent) 9%, transparent);
+          border-radius: 8px;
+          padding-left: 10px;
+          padding-right: 10px;
+        }
+        .sched-time {
+          flex-shrink: 0;
+          width: 78px;
+          padding-top: 1px;
+          font-size: 12.5px;
+          color: var(--ink-2);
+          /* Times line up column-wise instead of drifting with digit widths. */
+          font-variant-numeric: tabular-nums;
+        }
+        .sched-row[data-current="true"] .sched-time {
+          color: var(--accent);
+          font-weight: 700;
+        }
+        .sched-row[data-current="true"] .sched-title { font-weight: 700; }
 
         /* Two lines then ellipsis. Every title in the current schedule fits
            inside two lines, so nothing is actually cut today. It caps the worst
