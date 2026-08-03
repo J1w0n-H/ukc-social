@@ -28,7 +28,12 @@ const COPY: Record<Notification["type"], { text: string; href: (p: Record<string
   table_revealed: { text: "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
   ride_matched: { text: "Someone joined your ride.", href: () => "/matching?tab=rides" },
   hi_received: { text: "Someone wants to connect.", href: () => "/people" },
-  friend_accepted: { text: "You are connected. Say hi.", href: (p) => `/friends/${p.request_id}/chat` },
+  friend_accepted: {
+    text: "You are connected. Say hi.",
+    // Notifications written before migration 0024 carry only request_id. That
+    // path still resolves, it just redirects, so old rows keep working.
+    href: (p) => (p.slug ? `/dm/${p.slug}` : `/friends/${p.request_id}/chat`),
+  },
   new_message: {
     text: "New message.",
     href: (p) =>

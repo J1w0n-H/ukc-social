@@ -22,7 +22,7 @@ type Row = {
 
 type GroupRef = { id: string; name: string };
 type PoolRef = { id: string; direction: "arrival" | "departure" };
-type FriendReq = { id: string; from_user_id: string; to_user_id: string };
+type FriendReq = { id: string; slug: string; from_user_id: string; to_user_id: string };
 type MessageRow = { channel_id: string; body: string; created_at: string };
 
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -68,7 +68,7 @@ export async function ChatListSection(): Promise<{ node: React.ReactNode; unread
   // disambiguate them, and that ties the query to a name Postgres generated.
   const { data: friendRows } = await supabase
     .from("hi_requests")
-    .select("id, from_user_id, to_user_id")
+    .select("id, slug, from_user_id, to_user_id")
     .eq("status", "accepted");
   const friendReqs = (friendRows ?? []) as FriendReq[];
   const otherIds = friendReqs.map((r) => (r.from_user_id === user.id ? r.to_user_id : r.from_user_id));
@@ -77,7 +77,9 @@ export async function ChatListSection(): Promise<{ node: React.ReactNode; unread
     : { data: [] as { id: string; name: string }[] };
   const nameById = new Map((friendProfiles ?? []).map((p) => [p.id as string, p.name as string]));
   const friends = friendReqs.map((r) => ({
+    // id keys the messages, slug addresses the page. See migration 0024.
     id: r.id,
+    slug: r.slug,
     name: nameById.get(r.from_user_id === user.id ? r.to_user_id : r.from_user_id) || "Someone",
   }));
   const friendIds = friends.map((f) => f.id);
@@ -162,7 +164,7 @@ export async function ChatListSection(): Promise<{ node: React.ReactNode; unread
     const last = msgs[msgs.length - 1];
     return {
       key: `direct:${f.id}`,
-      href: `/friends/${f.id}/chat`,
+      href: `/dm/${f.slug}`,
       name: f.name,
       lastBody: last?.body ?? "No messages yet.",
       lastAt: last?.created_at ?? null,
