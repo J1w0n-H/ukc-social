@@ -221,7 +221,10 @@ h3 {
    never actually anchored to the rail's real layout and drifted out of
    place. Top-right never collides with a left-side rail at any width, so
    it stays put instead of chasing a second, fragile position. */
-.notif-slot { position: fixed; top: 8px; right: 8px; z-index: 55; }
+/* The bell used to sit here in a fixed-position `.notif-slot` at top 8px,
+   which anchored it to the viewport while the bar it appears to sit on is
+   sticky. They lined up only by coincidence, and did not. It is a flex item
+   of `.day-status-bar` now, so there are no coordinates left to disagree. */
 
 /* Which conference day it is, shown above every tab (not just 홈) — sticky
    so it stays visible while scrolling, but below NotificationBell's z-index
@@ -229,14 +232,38 @@ h3 {
 .day-status-bar {
   position: sticky;
   top: 0;
-  z-index: 40;
-  padding: 8px 16px calc(8px + env(safe-area-inset-top));
+  /* Above TabBar's 50 and below the sheets' 100. The bell used to carry this
+     itself while floating at 55; now that it is a child, the bar has to hold
+     the rank or the bell's dropdown would lose to the tab bar. */
+  z-index: 55;
+  /* No vertical padding: the bell's own 40px tap target sets the height, so
+     the bar lands at 40 rather than stacking 8 + 40 + 8 and arriving at 57.
+     min-height keeps that same 40 on the signed-out bar, which has no bell. */
+  padding: 0 16px env(safe-area-inset-top);
+  min-height: 40px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   color: var(--ink-2);
   font-size: 12.5px;
   font-weight: 600;
   text-align: center;
+  /* Label and bell on one line. Centering here rather than on the box means
+     the two stay aligned to each other no matter what the bar's padding does,
+     which matters because the bottom padding grows by the safe-area inset. */
+  display: flex;
+  align-items: center;
+}
+.day-status-bar__label {
+  flex: 1;
+  min-width: 0;
+}
+/* Both sides reserve the bell's 40px tap target, the left one empty. Without
+   the empty twin the label would centre in the space beside the bell and sit
+   20px left of the bar's true centre. */
+.day-status-bar__side {
+  flex: 0 0 40px;
+  display: flex;
+  justify-content: flex-end;
 }
 @media (min-width: 1024px) {
   /* Stays centered on desktop rather than flush-left against the rail. The
