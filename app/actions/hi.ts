@@ -43,7 +43,7 @@ export async function respondToRequest(requestId: string, accept: boolean): Prom
     .update({ status: accept ? "accepted" : "declined" })
     .eq("id", requestId)
     .eq("status", "pending")
-    .select("from_user_id")
+    .select("from_user_id, slug")
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!updated) return { ok: false, error: "That request is no longer open." };
@@ -51,10 +51,12 @@ export async function respondToRequest(requestId: string, accept: boolean): Prom
   // Only acceptance is announced. Telling someone they were declined turns a
   // quiet no into a notification, and there is nothing for them to do about it.
   if (accept) {
+    // slug is what the link needs (migration 0024). request_id stays alongside
+    // it so the payload still identifies the row for anything that wants it.
     await serviceClient().from("notifications").insert({
       user_id: updated.from_user_id as string,
       type: "friend_accepted",
-      payload: { from_user_id: user.id, request_id: requestId },
+      payload: { from_user_id: user.id, request_id: requestId, slug: updated.slug },
     });
   }
 

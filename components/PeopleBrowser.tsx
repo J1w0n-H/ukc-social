@@ -63,7 +63,7 @@ type Friendship =
   | { state: "none" }
   | { state: "outgoing"; id: string }
   | { state: "incoming"; id: string }
-  | { state: "friends"; id: string }
+  | { state: "friends"; id: string; slug: string }
   | { state: "declined" };
 
 export default function PeopleBrowser({
@@ -177,12 +177,12 @@ export default function PeopleBrowser({
     const supabase = createClient();
     const { data } = await supabase
       .from("hi_requests")
-      .select("id, from_user_id, status")
+      .select("id, slug, from_user_id, status")
       .or(`and(from_user_id.eq.${meId},to_user_id.eq.${personId}),and(from_user_id.eq.${personId},to_user_id.eq.${meId})`)
       .maybeSingle();
     if (!data) return { state: "none" };
     const id = data.id as string;
-    if (data.status === "accepted") return { state: "friends", id };
+    if (data.status === "accepted") return { state: "friends", id, slug: data.slug as string };
     if (data.status === "declined") return { state: "declined" };
     return data.from_user_id === meId ? { state: "outgoing", id } : { state: "incoming", id };
   }
@@ -530,7 +530,7 @@ export default function PeopleBrowser({
 
                 {friend.state === "friends" && (
                   <>
-                    <Link href={`/friends/${friend.id}/chat`} className="fr-primary fr-link">
+                    <Link href={`/dm/${friend.slug}`} className="fr-primary fr-link">
                       Message
                     </Link>
                     <button
