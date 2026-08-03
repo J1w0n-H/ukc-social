@@ -22,6 +22,7 @@ type Row = {
 
 type GroupRef = { id: string; name: string };
 type PoolRef = { id: string; direction: "arrival" | "departure" };
+type FriendReq = { id: string; from_user_id: string; to_user_id: string };
 type MessageRow = { channel_id: string; body: string; created_at: string };
 
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -58,6 +59,29 @@ export async function ChatListSection(): Promise<{ node: React.ReactNode; unread
     : { data: [] as PoolRef[] };
   const pools = (poolRows ?? []) as PoolRef[];
 
+  // Direct threads. hi_sel already limits this to requests you are a party to,
+  // so accepted is the only filter this needs. The thread's id is the request's
+  // id (migration 0023), which is also its messages.channel_id.
+  //
+  // Names come from a second query rather than an embedded join: hi_requests has
+  // two foreign keys into profiles, so PostgREST needs the constraint name to
+  // disambiguate them, and that ties the query to a name Postgres generated.
+  const { data: friendRows } = await supabase
+    .from("hi_requests")
+    .select("id, from_user_id, to_user_id")
+    .eq("status", "accepted");
+  const friendReqs = (friendRows ?? []) as FriendReq[];
+  const otherIds = friendReqs.map((r) => (r.from_user_id === user.id ? r.to_user_id : r.from_user_id));
+  const { data: friendProfiles } = otherIds.length
+    ? await supabase.from("profiles").select("id, name").in("id", otherIds)
+    : { data: [] as { id: string; name: string }[] };
+  const nameById = new Map((friendProfiles ?? []).map((p) => [p.id as string, p.name as string]));
+  const friends = friendReqs.map((r) => ({
+    id: r.id,
+    name: nameById.get(r.from_user_id === user.id ? r.to_user_id : r.from_user_id) || "Someone",
+  }));
+  const friendIds = friends.map((f) => f.id);
+
   const { data: reads } = groupIds.length
     ? await supabase
         .from("message_reads")
@@ -70,7 +94,7 @@ export async function ChatListSection(): Promise<{ node: React.ReactNode; unread
   // Two queries rather than one over both channel types: messages.channel_id is
   // a bare uuid with no foreign key, so a group id and a pool id are
   // indistinguishable unless channel_type is part of the filter.
-  const [mealRes, rideRes] = await Promise.all([
+  const [mealRes, rideRes, directRes] = await Promise.all([
     groupIds.length
       ? supabase
           .from("messages")
@@ -85,6 +109,14 @@ export async function ChatListSection(): Promise<{ node: React.ReactNode; unread
           .select("channel_id, body, created_at")
           .eq("channel_type", "ride")
           .in("channel_id", poolIds)
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] as MessageRow[] }),
+    friendIds.length
+      ? supabase
+          .from("messages")
+          .select("channel_id, body, created_at")
+          .eq("channel_type", "direct")
+          .in("channel_id", friendIds)
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [] as MessageRow[] }),
   ]);
@@ -123,7 +155,22 @@ export async function ChatListSection(): Promise<{ node: React.ReactNode; unread
     };
   });
 
-  const rows = [...tableRows, ...rideRows].sort(
+  // Same no-badge reason as rides: message_reads.group_id references groups, so
+  // a read marker keyed by a request id fails the foreign key.
+  const directRows: Row[] = friends.map((f) => {
+    const msgs = (directRes.data ?? []).filter((m) => m.channel_id === f.id);
+    const last = msgs[msgs.length - 1];
+    return {
+      key: `direct:${f.id}`,
+      href: `/friends/${f.id}/chat`,
+      name: f.name,
+      lastBody: last?.body ?? "No messages yet.",
+      lastAt: last?.created_at ?? null,
+      unread: null,
+    };
+  });
+
+  const rows = [...tableRows, ...rideRows, ...directRows].sort(
     (a, b) =>
       new Date(b.lastAt ?? 0).getTime() - new Date(a.lastAt ?? 0).getTime() ||
       a.name.localeCompare(b.name),
@@ -133,7 +180,7 @@ export async function ChatListSection(): Promise<{ node: React.ReactNode; unread
     <>
       {rows.length === 0 ? (
         <p style={{ color: "var(--ink-2)", fontSize: 15, paddingTop: 8 }}>
-          No conversations yet. Join a dinner or ride to start one.
+          No conversations yet. Connect with someone, or join a dinner or ride.
         </p>
       ) : (
         <div style={{ marginTop: 12, borderTop: "1px solid var(--line)" }}>

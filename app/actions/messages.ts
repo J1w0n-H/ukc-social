@@ -13,7 +13,7 @@ type SentMessage = {
 type Result = { ok: boolean; error?: string; message?: SentMessage };
 
 export async function sendMessage(
-  channelType: "meal" | "ride",
+  channelType: "meal" | "ride" | "direct",
   channelId: string,
   body: string,
 ): Promise<Result> {
