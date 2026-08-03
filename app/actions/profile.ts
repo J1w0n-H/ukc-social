@@ -14,6 +14,7 @@ type ProfileInput = Partial<{
   bio: string;
   kakao: string;
   linkedin: string;
+  instagram: string;
   dietary: string;
   photo_url: string;
   dinners_wanted: string[];

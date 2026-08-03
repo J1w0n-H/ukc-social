@@ -24,25 +24,32 @@ type Notification = {
 // Anything ride-shaped goes to 매칭 with the Rides segment already open. A new
 // ride message opens the thread itself, the same as a table message does, rather
 // than the list it came from.
-const COPY: Record<Notification["type"], { text: string; href: (p: Record<string, unknown>) => string }> = {
-  table_revealed: { text: "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
-  ride_matched: { text: "Someone joined your ride.", href: () => "/matching?tab=rides" },
-  hi_received: { text: "Someone wants to connect.", href: () => "/people" },
+// A notification carries the actor's name in its payload (see app/actions/hi.ts)
+// so these can address a person rather than "Someone". Older rows predate that
+// and fall back, which is why `who` exists instead of reading payload.from_name
+// directly.
+const who = (p: Record<string, unknown>, fallback = "Someone") =>
+  typeof p.from_name === "string" && p.from_name.trim() ? p.from_name.trim() : fallback;
+
+const COPY: Record<Notification["type"], { text: (p: Record<string, unknown>) => string; href: (p: Record<string, unknown>) => string }> = {
+  table_revealed: { text: () => "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
+  ride_matched: { text: () => "Someone joined your ride.", href: () => "/matching?tab=rides" },
+  hi_received: { text: (p) => `${who(p)} requested you as a friend.`, href: () => "/people" },
   friend_accepted: {
-    text: "You are connected. Say hi.",
+    text: (p) => `${who(p)} accepted your request. Say hi.`,
     // Notifications written before migration 0024 carry only request_id. That
     // path still resolves, it just redirects, so old rows keep working.
     href: (p) => (p.slug ? `/dm/${p.slug}` : `/friends/${p.request_id}/chat`),
   },
   new_message: {
-    text: "New message.",
+    text: () => "New message.",
     href: (p) =>
       p.channel_type === "meal"
         ? `/groups/${p.channel_id}/chat`
         : `/rides/${p.channel_id}/chat`,
   },
-  announcement: { text: "New announcement.", href: () => "/schedule" },
-  ride_member_left: { text: "Someone left your ride.", href: () => "/matching?tab=rides" },
+  announcement: { text: () => "New announcement.", href: () => "/schedule" },
+  ride_member_left: { text: () => "Someone left your ride.", href: () => "/matching?tab=rides" },
 };
 
 export default function NotificationBell() {
@@ -151,7 +158,7 @@ export default function NotificationBell() {
                 onClick={() => setOpen(false)}
                 style={{ opacity: n.read_at ? 0.6 : 1 }}
               >
-                {COPY[n.type].text}
+                {COPY[n.type].text(n.payload)}
               </Link>
             ))
           )}

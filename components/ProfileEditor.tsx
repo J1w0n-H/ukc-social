@@ -17,6 +17,7 @@ type Profile = {
   bio: string;
   kakao: string;
   linkedin: string;
+  instagram: string;
   dietary: string;
   photo_url: string | null;
 };
@@ -125,6 +126,7 @@ export default function ProfileEditor({
         bio: form.bio,
         kakao: form.kakao,
         linkedin: form.linkedin,
+        instagram: form.instagram,
         dietary: form.dietary,
         photo_url: form.photo_url ?? undefined,
       }),
@@ -374,6 +376,13 @@ export default function ProfileEditor({
       <input className="ob-field" value={form.kakao} onChange={(e) => set({ kakao: e.target.value })} />
       <Label>LinkedIn</Label>
       <input className="ob-field" value={form.linkedin} onChange={(e) => set({ linkedin: e.target.value })} />
+      <Label>Instagram</Label>
+      <input
+        className="ob-field"
+        value={form.instagram}
+        onChange={(e) => set({ instagram: e.target.value })}
+        placeholder="@handle"
+      />
       <Label>Dietary notes</Label>
       <input
         className="ob-field"

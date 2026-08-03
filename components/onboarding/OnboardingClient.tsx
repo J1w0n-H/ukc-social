@@ -26,6 +26,7 @@ type Data = {
   bio: string;
   kakao: string;
   linkedin: string;
+  instagram: string;
   slotIds: string[];
   flight: Flight;
 };
@@ -54,6 +55,7 @@ export default function OnboardingClient({
     bio: "",
     kakao: "",
     linkedin: "",
+    instagram: "",
     slotIds: [],
     flight: { arrival: "", departure: "" },
   };
@@ -219,6 +221,7 @@ export default function OnboardingClient({
                 bio: data.bio.trim(),
                 kakao: data.kakao.trim(),
                 linkedin: data.linkedin.trim(),
+                instagram: data.instagram.trim(),
               },
               5,
             )

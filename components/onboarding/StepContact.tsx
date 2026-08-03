@@ -1,6 +1,6 @@
 "use client";
 
-type Contact = { bio: string; kakao: string; linkedin: string };
+type Contact = { bio: string; kakao: string; linkedin: string; instagram: string };
 
 export default function StepContact({
   value,
@@ -17,7 +17,7 @@ export default function StepContact({
   busy: boolean;
   error: string;
 }) {
-  const hasContact = !!(value.kakao.trim() || value.linkedin.trim());
+  const hasContact = !!(value.kakao.trim() || value.linkedin.trim() || value.instagram.trim());
 
   return (
     <>
@@ -52,6 +52,17 @@ export default function StepContact({
         value={value.linkedin}
         onChange={(e) => onChange({ linkedin: e.target.value })}
         placeholder="linkedin.com/in/…"
+      />
+
+      <label className="ob-label" htmlFor="ob-instagram">
+        Instagram <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>· optional</span>
+      </label>
+      <input
+        id="ob-instagram"
+        className="ob-field"
+        value={value.instagram}
+        onChange={(e) => onChange({ instagram: e.target.value })}
+        placeholder="@handle"
       />
 
       {!hasContact && (

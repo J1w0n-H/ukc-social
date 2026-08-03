@@ -49,10 +49,60 @@ function Avatar({ person, size }: { person: Person; size: number }) {
   );
 }
 
+// A LinkedIn field is usually pasted as a full URL. The row wants the part a
+// person recognises, so strip the scheme, the host and the /in/ prefix and show
+// what is left.
+function shortHandle(v: string): string {
+  const trimmed = v.trim().replace(/\/+$/, "");
+  const tail = trimmed.split("/").filter(Boolean).pop() ?? trimmed;
+  return tail.includes(".") ? trimmed.replace(/^https?:\/\//, "") : tail;
+}
+
+// Brand marks, drawn rather than fetched: a strict CSP and an offline-capable
+// page both rule out hotlinking someone's logo CDN, and three inline paths cost
+// less than three network round trips.
+function KakaoMark() {
+  return (
+    <svg className="ct-mark" viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path
+        fill="#FEE500"
+        d="M12 3.6c-4.7 0-8.5 2.98-8.5 6.65 0 2.36 1.57 4.43 3.94 5.6l-.99 3.65a.3.3 0 0 0 .46.33l4.32-2.85c.25.02.5.03.77.03 4.7 0 8.5-2.98 8.5-6.76S16.7 3.6 12 3.6Z"
+      />
+    </svg>
+  );
+}
+function LinkedInMark() {
+  return (
+    <svg className="ct-mark" viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path
+        fill="#0A66C2"
+        d="M20.45 3H3.55A.55.55 0 0 0 3 3.56v16.88c0 .31.25.56.55.56h16.9c.3 0 .55-.25.55-.56V3.56a.55.55 0 0 0-.55-.56ZM8.34 18.34H5.67V9.75h2.67v8.59ZM7 8.58a1.55 1.55 0 1 1 0-3.1 1.55 1.55 0 0 1 0 3.1Zm11.34 9.76h-2.67v-4.18c0-1 -.02-2.28-1.39-2.28-1.39 0-1.6 1.09-1.6 2.21v4.25H9.99V9.75h2.57v1.17h.03a2.82 2.82 0 0 1 2.54-1.39c2.71 0 3.21 1.78 3.21 4.1v4.71Z"
+      />
+    </svg>
+  );
+}
+function InstagramMark() {
+  return (
+    <svg className="ct-mark" viewBox="0 0 24 24" aria-hidden focusable="false">
+      <defs>
+        <linearGradient id="ig-g" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#FEDA75" />
+          <stop offset="0.35" stopColor="#FA7E1E" />
+          <stop offset="0.7" stopColor="#D62976" />
+          <stop offset="1" stopColor="#4F5BD5" />
+        </linearGradient>
+      </defs>
+      <rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.4" fill="url(#ig-g)" />
+      <circle cx="12" cy="12" r="4" fill="none" stroke="#fff" strokeWidth="1.7" />
+      <circle cx="17.1" cy="6.9" r="1.2" fill="#fff" />
+    </svg>
+  );
+}
+
 type Contacts =
   | { state: "loading" }
   | { state: "locked" }
-  | { state: "unlocked"; kakao: string; linkedin: string };
+  | { state: "unlocked"; kakao: string; linkedin: string; instagram: string };
 
 type StayFilter = "all" | "early" | "late" | "same";
 
@@ -118,16 +168,29 @@ export default function PeopleBrowser({
     };
   }, [openId]);
 
+  // Ordered by how many people picked each one, commonest first, so the filters
+  // that actually narrow the list are the ones in reach. The row scrolls
+  // horizontally, and sorting alphabetically put whatever began with A at the
+  // front regardless of whether anyone had chosen it. Ties fall back to
+  // alphabetical so the order is stable rather than dependent on roster order.
+  const byCountThenName = (counts: Map<string, number>) => (a: string, b: string) =>
+    (counts.get(b) ?? 0) - (counts.get(a) ?? 0) || a.localeCompare(b);
+
   const allInterests = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of people) for (const i of p.interests) set.add(i);
-    return [...set].sort((a, b) => a.localeCompare(b));
+    const counts = new Map<string, number>();
+    for (const p of people) for (const i of p.interests) counts.set(i, (counts.get(i) ?? 0) + 1);
+    return [...counts.keys()].sort(byCountThenName(counts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [people]);
 
   const allSchools = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of people) if (p.school.trim()) set.add(p.school.trim());
-    return [...set].sort((a, b) => a.localeCompare(b));
+    const counts = new Map<string, number>();
+    for (const p of people) {
+      const s = p.school.trim();
+      if (s) counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return [...counts.keys()].sort(byCountThenName(counts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [people]);
 
   const relationOf = (p: Person) =>
@@ -193,13 +256,14 @@ export default function PeopleBrowser({
     if (!canSee) return setContacts({ state: "locked" });
     const { data } = await supabase
       .from("profiles")
-      .select("kakao, linkedin")
+      .select("kakao, linkedin, instagram")
       .eq("id", personId)
       .maybeSingle();
     setContacts({
       state: "unlocked",
       kakao: data?.kakao ?? "",
       linkedin: data?.linkedin ?? "",
+      instagram: data?.instagram ?? "",
     });
   }
 
@@ -440,17 +504,21 @@ export default function PeopleBrowser({
                 </div>
               )}
               {contacts.state === "unlocked" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div className="ct-list">
+                  {/* Mark on the left, handle on the right. The handle stays
+                      visible rather than hiding behind the icon: KakaoTalk has
+                      no link to follow, you type the ID into Kakao itself, and
+                      for the other two people still want to read the handle
+                      before deciding to tap. */}
                   {contacts.kakao ? (
-                    <div style={{ fontSize: 15 }}>
-                      <span style={{ color: "var(--ink-2)" }}>KakaoTalk · </span>
-                      <span style={{ color: "var(--ink)", fontWeight: 600 }}>
-                        {contacts.kakao}
-                      </span>
+                    <div className="ct-row">
+                      <KakaoMark />
+                      <span className="ct-handle">{contacts.kakao}</span>
                     </div>
                   ) : null}
                   {contacts.linkedin ? (
                     <a
+                      className="ct-row ct-row--link"
                       href={
                         contacts.linkedin.startsWith("http")
                           ? contacts.linkedin
@@ -458,12 +526,23 @@ export default function PeopleBrowser({
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ fontSize: 15, color: "var(--accent)", fontWeight: 600 }}
                     >
-                      LinkedIn
+                      <LinkedInMark />
+                      <span className="ct-handle">{shortHandle(contacts.linkedin)}</span>
                     </a>
                   ) : null}
-                  {!contacts.kakao && !contacts.linkedin && (
+                  {contacts.instagram ? (
+                    <a
+                      className="ct-row ct-row--link"
+                      href={`https://instagram.com/${contacts.instagram.replace(/^@/, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <InstagramMark />
+                      <span className="ct-handle">@{contacts.instagram.replace(/^@/, "")}</span>
+                    </a>
+                  ) : null}
+                  {!contacts.kakao && !contacts.linkedin && !contacts.instagram && (
                     <span style={{ fontSize: 14, color: "var(--ink-2)" }}>
                       No contacts added yet.
                     </span>
@@ -551,6 +630,27 @@ export default function PeopleBrowser({
             </button>
 
             <style>{`
+              .ct-list { display: flex; flex-direction: column; gap: 4px; }
+              .ct-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-height: 40px;
+                padding: 2px 0;
+                text-decoration: none;
+                color: var(--ink);
+              }
+              .ct-row--link .ct-handle { color: var(--accent); }
+              .ct-row--link:hover .ct-handle { text-decoration: underline; }
+              .ct-mark { width: 20px; height: 20px; flex-shrink: 0; }
+              .ct-handle {
+                font-size: 15px;
+                font-weight: 600;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
               .fr-actions {
                 display: flex;
                 align-items: center;
