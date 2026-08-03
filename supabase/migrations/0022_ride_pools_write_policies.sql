@@ -1,0 +1,23 @@
+-- ride_pools update/delete were open to every signed-in user:
+--
+--   rp_upd ... for update using (auth.role() = 'authenticated')
+--   rp_del ... for delete using (auth.role() = 'authenticated')
+--
+-- `using` is the row filter, so those matched every row, not just the caller's
+-- own. Any attendee could repoint or remove any ride group, and ride_members
+-- cascades on delete, so one statement took every membership with it.
+--
+-- Scoping them to "must be a member of this pool" does not work: leavePool()
+-- in app/actions/flights.ts removes the member first and only then re-centers
+-- the pickup time, and deletes the pool precisely when the last member is
+-- already gone. The caller is legitimately a non-member at both moments.
+--
+-- So the ability is removed from client sessions altogether. With no update or
+-- delete policy, RLS denies both to anon and authenticated, and the two server
+-- actions that need them use the service-role client, which bypasses RLS. That
+-- keeps the membership check in application code, where the caller's identity
+-- is already known, rather than in a policy that cannot see it.
+--
+-- rp_sel (read) and rp_ins (create your own) are unchanged.
+drop policy if exists rp_upd on ride_pools;
+drop policy if exists rp_del on ride_pools;

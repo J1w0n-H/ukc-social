@@ -31,7 +31,12 @@ async function leavePool(supabase: Supa, userId: string, poolId: string): Promis
   await supabase.from("ride_members").delete().eq("pool_id", poolId).eq("user_id", userId);
   const { data: remaining } = await supabase.from("ride_members").select("user_id, flight_at").eq("pool_id", poolId);
   if (remaining && remaining.length) {
-    await supabase
+    // Service-role for the pool row itself: RLS grants no update to a client
+    // session (migration 0022), and by this line the caller has already been
+    // removed from ride_members, so no member-scoped policy could cover them
+    // either. Both callers reach here with a poolId derived from the user's
+    // own membership, so the authority check has already happened above.
+    await serviceClient()
       .from("ride_pools")
       .update({ pickup_at: averagePickupAt(remaining.map((r) => r.flight_at as string)) })
       .eq("id", poolId);
@@ -47,7 +52,9 @@ async function leavePool(supabase: Supa, userId: string, poolId: string): Promis
         })),
       );
   } else {
-    await supabase.from("ride_pools").delete().eq("id", poolId);
+    // Last member just left, so the empty pool goes with them. Same reasoning
+    // as the update above: nobody is a member of this pool at this point.
+    await serviceClient().from("ride_pools").delete().eq("id", poolId);
   }
 }
 
@@ -234,7 +241,10 @@ export async function joinProposedPool(poolId: string): Promise<Result & { full?
     ...(existing ?? []).map((m) => m.flight_at as string).filter(Boolean),
     flight.scheduled_at as string,
   ];
-  const { error: recenterErr } = await supabase
+  // Service-role for the same reason as leavePool: clients hold no update
+  // grant on ride_pools. The caller is a member of this pool by the upsert
+  // directly above, and capacity was checked before it.
+  const { error: recenterErr } = await serviceClient()
     .from("ride_pools")
     .update({ pickup_at: averagePickupAt(allTimes) })
     .eq("id", poolId);
