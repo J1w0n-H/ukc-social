@@ -489,7 +489,13 @@ export default function PeopleBrowser({
 
                 {friend.state === "outgoing" && (
                   <>
-                    <span className="fr-note">Request sent</span>
+                    <span className="fr-note">
+                      Request sent
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M21.5 2.5 11 13" />
+                        <path d="M21.5 2.5 15 21l-4-8-8-4 18.5-6.5Z" />
+                      </svg>
+                    </span>
                     <button
                       type="button"
                       className="fr-quiet"
@@ -583,7 +589,15 @@ export default function PeopleBrowser({
               }
               .fr-quiet:hover:not(:disabled) { color: var(--ink); }
               .fr-quiet:disabled { opacity: 0.5; cursor: default; }
-              .fr-note { flex: 1; font-size: 15px; color: var(--ink-2); font-weight: 600; }
+              .fr-note {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                font-size: 15px;
+                color: var(--ink-2);
+                font-weight: 600;
+              }
             `}</style>
           </div>
         </div>

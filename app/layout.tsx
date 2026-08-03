@@ -39,6 +39,12 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#0A121C",
+  // Without this the on-screen keyboard overlays the page instead of resizing
+  // it, so 100dvh stays the full screen height and the chat composer plus the
+  // last few messages end up underneath the keyboard. `resizes-content` shrinks
+  // the viewport instead, which is what lets Chat's `height: 100dvh` give back
+  // the space and keep the conversation visible while typing.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
