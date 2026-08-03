@@ -2,7 +2,16 @@ import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
 import PeopleBrowser from "@/components/PeopleBrowser";
 import PeopleChatTabs from "@/components/PeopleChatTabs";
+import FriendRequests, { type IncomingRequest } from "@/components/FriendRequests";
 import { ChatListSection } from "../chat/page";
+
+type IncomingSender = {
+  id: string;
+  name: string;
+  school: string;
+  position: string;
+  photo_url: string | null;
+};
 
 // Just the data-dependent browser — shared by the standalone /people route
 // and the 친구 (Home) tab, which embeds it directly (see app/(tabs)/home/page.tsx).
@@ -43,12 +52,40 @@ export async function PeopleSection() {
     .eq("id", user.id)
     .maybeSingle();
 
+  // Requests waiting on you. hi_sel scopes this to rows you are a party to, so
+  // the to_user_id filter is what narrows it to ones you have to answer rather
+  // than ones you sent. Senders come from directory_profiles, not profiles: a
+  // pending request grants no contact visibility, so the base table would refuse
+  // the read and leave the list nameless.
+  const { data: reqRows } = await supabase
+    .from("hi_requests")
+    .select("id, from_user_id")
+    .eq("to_user_id", user.id)
+    .eq("status", "pending");
+  const senderIds = (reqRows ?? []).map((r) => r.from_user_id as string);
+  const { data: senders } = senderIds.length
+    ? await supabase
+        .from("directory_profiles")
+        .select("id, name, school, position, photo_url")
+        .in("id", senderIds)
+    : { data: [] as IncomingSender[] };
+  const senderById = new Map(((senders ?? []) as IncomingSender[]).map((s) => [s.id, s]));
+  const requests: IncomingRequest[] = (reqRows ?? []).flatMap((r) => {
+    const s = senderById.get(r.from_user_id as string);
+    return s
+      ? [{ id: r.id as string, name: s.name, school: s.school, position: s.position, photo_url: s.photo_url }]
+      : [];
+  });
+
   return (
-    <PeopleBrowser
-      people={rows}
-      meId={user.id}
-      myStay={{ start: me?.stay_start ?? null, end: me?.stay_end ?? null }}
-    />
+    <>
+      <FriendRequests requests={requests} />
+      <PeopleBrowser
+        people={rows}
+        meId={user.id}
+        myStay={{ start: me?.stay_start ?? null, end: me?.stay_end ?? null }}
+      />
+    </>
   );
 }
 

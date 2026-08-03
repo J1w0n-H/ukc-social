@@ -79,6 +79,23 @@ function Avatar({
   );
 }
 
+const CHANNEL_LABEL = {
+  meal: "Your table",
+  ride: "Your ride",
+  direct: "Your conversation",
+} as const;
+
+// Every thread offers a way out of itself, they just lead somewhere different.
+// A table has its own reveal screen. A ride's details live on the Rides segment
+// of 매칭, so it goes there with the segment preselected rather than to
+// /groups/<poolId>, which is not a group and would 404. A direct thread has no
+// detail screen of its own, so it returns to the directory it started from.
+const CHANNEL_EXIT = {
+  meal: { href: (id: string) => `/groups/${id}`, label: "See full profiles ▸" },
+  ride: { href: () => "/matching?tab=rides", label: "See ride details ▸" },
+  direct: { href: () => "/people", label: "Back to people ▸" },
+} as const;
+
 export default function Chat({
   channelType,
   channelId,
@@ -90,7 +107,7 @@ export default function Chat({
   meetTime,
   timezone = "America/New_York",
 }: {
-  channelType: "meal" | "ride";
+  channelType: "meal" | "ride" | "direct";
   channelId: string;
   currentUserId: string;
   groupId: string;
@@ -320,7 +337,11 @@ export default function Chat({
           ref={headBtnRef}
           className="head-id"
           onClick={() => setRosterOpen(true)}
-          aria-label={`${members.length} people in your ${channelType === "ride" ? "ride" : "table"}, open roster`}
+          aria-label={
+            channelType === "direct"
+              ? "Open this conversation's details"
+              : `${members.length} people in your ${channelType === "ride" ? "ride" : "table"}, open roster`
+          }
         >
           <span className="stack">
             {stack.map((m) => (
@@ -500,11 +521,11 @@ export default function Chat({
             className="sheet"
             role="dialog"
             aria-modal="true"
-            aria-label={channelType === "ride" ? "Your ride" : "Your table"}
+            aria-label={CHANNEL_LABEL[channelType]}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="grabber" aria-hidden />
-            <div className="sheet-kicker">{channelType === "ride" ? "Your ride" : "Your table"}</div>
+            <div className="sheet-kicker">{CHANNEL_LABEL[channelType]}</div>
             <h2 className="sheet-title">{groupName}</h2>
             <div className="roster">
               {members.map((m) => (
@@ -528,11 +549,11 @@ export default function Chat({
                 there with the segment already selected rather than to
                 /groups/<poolId>, which is not a group and would 404. */}
             <Link
-              href={channelType === "meal" ? `/groups/${groupId}` : "/matching?tab=rides"}
+              href={CHANNEL_EXIT[channelType].href(groupId)}
               className="sheet-link"
               onClick={() => setRosterOpen(false)}
             >
-              {channelType === "meal" ? "See full profiles ▸" : "See ride details ▸"}
+              {CHANNEL_EXIT[channelType].label}
             </Link>
             <button className="sheet-close" onClick={() => setRosterOpen(false)}>
               Close

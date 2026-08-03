@@ -5,10 +5,13 @@ import { serviceClient } from "@/lib/supabase/service";
 
 type Result = { ok: boolean; error?: string };
 
-// Low-stakes "Say hi" — persisted, but deliberately does not unlock contacts
-// (see migration 0010). Idempotent: sending twice to the same person is a
-// no-op success, not an error.
-export async function sayHi(targetId: string): Promise<Result> {
+// Friend requests. A request is a row in hi_requests; accepting it makes the two
+// people a channel (migration 0023 widened shares_channel), which is what
+// unlocks contacts and opens the direct thread. Everything here writes through
+// the caller's own session so RLS is the real check, except the notifications,
+// which are addressed to the other person and so need service-role.
+
+export async function sendRequest(targetId: string): Promise<Result> {
   const { user, supabase } = await requireUser();
   if (targetId === user.id) return { ok: false, error: "That's you." };
 
@@ -16,15 +19,55 @@ export async function sayHi(targetId: string): Promise<Result> {
     .from("hi_requests")
     .insert({ from_user_id: user.id, to_user_id: targetId });
   if (error) {
-    if (error.code === "23505") return { ok: true }; // already sent
+    // Idempotent: asking twice is a no-op success, not an error. The unique
+    // (from_user_id, to_user_id) index is what makes it one.
+    if (error.code === "23505") return { ok: true };
     return { ok: false, error: error.message };
   }
 
-  // Notifies the recipient (migration 0014) — the actor isn't the recipient,
-  // so this needs the service-role client, not the caller's own session.
   await serviceClient()
     .from("notifications")
     .insert({ user_id: targetId, type: "hi_received", payload: { from_user_id: user.id } });
 
+  return { ok: true };
+}
+
+// Only the recipient reaches here: hi_upd is scoped to to_user_id, so a sender
+// calling this updates zero rows rather than approving their own request. The
+// status = 'pending' filter is what makes a double-tap land once.
+export async function respondToRequest(requestId: string, accept: boolean): Promise<Result> {
+  const { user, supabase } = await requireUser();
+
+  const { data: updated, error } = await supabase
+    .from("hi_requests")
+    .update({ status: accept ? "accepted" : "declined" })
+    .eq("id", requestId)
+    .eq("status", "pending")
+    .select("from_user_id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!updated) return { ok: false, error: "That request is no longer open." };
+
+  // Only acceptance is announced. Telling someone they were declined turns a
+  // quiet no into a notification, and there is nothing for them to do about it.
+  if (accept) {
+    await serviceClient().from("notifications").insert({
+      user_id: updated.from_user_id as string,
+      type: "friend_accepted",
+      payload: { from_user_id: user.id, request_id: requestId },
+    });
+  }
+
+  return { ok: true };
+}
+
+// Either side can walk it back: withdrawing one you sent, or removing someone
+// you accepted. hi_del bounds it to your own rows. Deleting rather than setting
+// a status keeps re-sending possible, which the unique index would otherwise
+// block forever.
+export async function removeRequest(requestId: string): Promise<Result> {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("hi_requests").delete().eq("id", requestId);
+  if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

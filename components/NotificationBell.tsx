@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Notification = {
   id: string;
-  type: "table_revealed" | "ride_matched" | "hi_received" | "new_message" | "announcement" | "ride_member_left";
+  type: "table_revealed" | "ride_matched" | "hi_received" | "new_message" | "announcement" | "ride_member_left" | "friend_accepted";
   payload: Record<string, unknown>;
   read_at: string | null;
   created_at: string;
@@ -26,7 +26,8 @@ type Notification = {
 const COPY: Record<Notification["type"], { text: string; href: (p: Record<string, unknown>) => string }> = {
   table_revealed: { text: "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
   ride_matched: { text: "Someone joined your ride.", href: () => "/matching?tab=rides" },
-  hi_received: { text: "Someone said hi to you.", href: () => "/home" },
+  hi_received: { text: "Someone wants to connect.", href: () => "/people" },
+  friend_accepted: { text: "You are connected. Say hi.", href: (p) => `/friends/${p.request_id}/chat` },
   new_message: {
     text: "New message.",
     href: (p) =>

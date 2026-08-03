@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { sendRequest, respondToRequest, removeRequest } from "@/app/actions/hi";
 import { stayRelation, STAY_LABEL, type StayWindow } from "@/lib/stay";
 
 export type Person = {
@@ -54,6 +56,16 @@ type Contacts =
 
 type StayFilter = "all" | "early" | "late" | "same";
 
+// Where this person stands with you. "incoming" is a request they sent that you
+// have not answered, which is the only state with two buttons.
+type Friendship =
+  | { state: "loading" }
+  | { state: "none" }
+  | { state: "outgoing"; id: string }
+  | { state: "incoming"; id: string }
+  | { state: "friends"; id: string }
+  | { state: "declined" };
+
 export default function PeopleBrowser({
   people,
   meId,
@@ -69,6 +81,8 @@ export default function PeopleBrowser({
   const [activeStay, setActiveStay] = useState<StayFilter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contacts>({ state: "loading" });
+  const [friend, setFriend] = useState<Friendship>({ state: "loading" });
+  const [busy, setBusy] = useState(false);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<Element | null>(null);
@@ -155,31 +169,65 @@ export default function PeopleBrowser({
     );
   }
 
-  async function openSheet(person: Person) {
-    setOpenId(person.id);
-    if (person.id === meId) {
-      setContacts({ state: "locked" });
-      return;
-    }
-    setContacts({ state: "loading" });
+  // Reads the request between the two of you. hi_sel already limits this to rows
+  // you are a party to, so the query needs no filtering of its own beyond the
+  // pair. Kept client-side rather than passed down with the roster: a directory
+  // of 300 people would otherwise carry 300 request lookups to render one sheet.
+  async function loadFriendship(personId: string): Promise<Friendship> {
     const supabase = createClient();
-    const { data: canSee } = await supabase.rpc("can_see_contact", {
-      target: person.id,
-    });
-    if (!canSee) {
-      setContacts({ state: "locked" });
-      return;
-    }
+    const { data } = await supabase
+      .from("hi_requests")
+      .select("id, from_user_id, status")
+      .or(`and(from_user_id.eq.${meId},to_user_id.eq.${personId}),and(from_user_id.eq.${personId},to_user_id.eq.${meId})`)
+      .maybeSingle();
+    if (!data) return { state: "none" };
+    const id = data.id as string;
+    if (data.status === "accepted") return { state: "friends", id };
+    if (data.status === "declined") return { state: "declined" };
+    return data.from_user_id === meId ? { state: "outgoing", id } : { state: "incoming", id };
+  }
+
+  async function loadContacts(personId: string) {
+    const supabase = createClient();
+    const { data: canSee } = await supabase.rpc("can_see_contact", { target: personId });
+    if (!canSee) return setContacts({ state: "locked" });
     const { data } = await supabase
       .from("profiles")
       .select("kakao, linkedin")
-      .eq("id", person.id)
+      .eq("id", personId)
       .maybeSingle();
     setContacts({
       state: "unlocked",
       kakao: data?.kakao ?? "",
       linkedin: data?.linkedin ?? "",
     });
+  }
+
+  async function openSheet(person: Person) {
+    setOpenId(person.id);
+    if (person.id === meId) {
+      setContacts({ state: "locked" });
+      setFriend({ state: "none" });
+      return;
+    }
+    setContacts({ state: "loading" });
+    setFriend({ state: "loading" });
+    // Independent reads, so they run together rather than one after the other.
+    const [, f] = await Promise.all([loadContacts(person.id), loadFriendship(person.id)]);
+    setFriend(f);
+  }
+
+  // Contacts unlock as a side effect of accepting (shares_channel widened in
+  // 0023), so the contact block has to be re-read after any change or it would
+  // keep showing the lock until the sheet is closed and reopened.
+  async function act(fn: () => Promise<{ ok: boolean; error?: string }>, personId: string) {
+    setBusy(true);
+    const r = await fn();
+    if (r.ok) {
+      const [, f] = await Promise.all([loadContacts(personId), loadFriendship(personId)]);
+      setFriend(f);
+    }
+    setBusy(false);
   }
 
   const STAY_FILTERS: { id: StayFilter; label: string }[] = [
@@ -386,7 +434,9 @@ export default function PeopleBrowser({
                     <rect x="3" y="11" width="18" height="11" rx="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                  Join a table or ride together to connect
+                  {friend.state === "outgoing"
+                    ? "Shared once they accept"
+                    : "Connect, or share a table or ride, to see contacts"}
                 </div>
               )}
               {contacts.state === "unlocked" && (
@@ -422,9 +472,119 @@ export default function PeopleBrowser({
               )}
             </div>
 
+            {/* Nothing to offer on your own card, and a declined request stays
+                quiet rather than inviting another round of asking. */}
+            {active.id !== meId && friend.state !== "loading" && friend.state !== "declined" && (
+              <div className="fr-actions">
+                {friend.state === "none" && (
+                  <button
+                    type="button"
+                    className="fr-primary"
+                    disabled={busy}
+                    onClick={() => act(() => sendRequest(active.id), active.id)}
+                  >
+                    {busy ? "Sending…" : "Connect"}
+                  </button>
+                )}
+
+                {friend.state === "outgoing" && (
+                  <>
+                    <span className="fr-note">Request sent</span>
+                    <button
+                      type="button"
+                      className="fr-quiet"
+                      disabled={busy}
+                      onClick={() => act(() => removeRequest(friend.id), active.id)}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+
+                {friend.state === "incoming" && (
+                  <>
+                    <button
+                      type="button"
+                      className="fr-primary"
+                      disabled={busy}
+                      onClick={() => act(() => respondToRequest(friend.id, true), active.id)}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      className="fr-quiet"
+                      disabled={busy}
+                      onClick={() => act(() => respondToRequest(friend.id, false), active.id)}
+                    >
+                      Decline
+                    </button>
+                  </>
+                )}
+
+                {friend.state === "friends" && (
+                  <>
+                    <Link href={`/friends/${friend.id}/chat`} className="fr-primary fr-link">
+                      Message
+                    </Link>
+                    <button
+                      type="button"
+                      className="fr-quiet"
+                      disabled={busy}
+                      onClick={() => act(() => removeRequest(friend.id), active.id)}
+                    >
+                      Remove
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
             <button className="ppl-close" onClick={() => setOpenId(null)}>
               Close
             </button>
+
+            <style>{`
+              .fr-actions {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-top: 22px;
+                padding-top: 18px;
+                border-top: 1px solid var(--line);
+              }
+              .fr-primary {
+                flex: 1;
+                min-height: 46px;
+                border: 0;
+                border-radius: 12px;
+                background: var(--accent-grad);
+                color: var(--accent-ink);
+                font-size: 15px;
+                font-weight: 700;
+                cursor: pointer;
+              }
+              .fr-primary:disabled { opacity: 0.5; cursor: default; }
+              .fr-link {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-decoration: none;
+              }
+              .fr-quiet {
+                min-height: 46px;
+                padding: 0 14px;
+                border: none;
+                background: none;
+                color: var(--ink-2);
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+              }
+              .fr-quiet:hover:not(:disabled) { color: var(--ink); }
+              .fr-quiet:disabled { opacity: 0.5; cursor: default; }
+              .fr-note { flex: 1; font-size: 15px; color: var(--ink-2); font-weight: 600; }
+            `}</style>
           </div>
         </div>
       )}
