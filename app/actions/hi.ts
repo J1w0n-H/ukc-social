@@ -5,6 +5,25 @@ import { serviceClient } from "@/lib/supabase/service";
 
 type Result = { ok: boolean; error?: string };
 
+// What the two of you have in common, for the second line of the notification.
+// Read from directory_profiles rather than profiles: interests are public
+// roster data, so this works before anything is accepted and needs no
+// service-role. Capped at two, since the line is a nudge, not a report.
+async function sharedInterests(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  a: string,
+  b: string,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("directory_profiles")
+    .select("id, interests")
+    .in("id", [a, b]);
+  const rows = (data ?? []) as { id: string; interests: string[] | null }[];
+  const mine = new Set((rows.find((r) => r.id === a)?.interests ?? []).map((i) => i.toLowerCase()));
+  const theirs = rows.find((r) => r.id === b)?.interests ?? [];
+  return theirs.filter((i) => mine.has(i.toLowerCase())).slice(0, 2);
+}
+
 // Friend requests. A request is a row in hi_requests; accepting it makes the two
 // people a channel (migration 0023 widened shares_channel), which is what
 // unlocks contacts and opens the direct thread. Everything here writes through
@@ -40,7 +59,11 @@ export async function sendRequest(targetId: string): Promise<Result> {
   await serviceClient().from("notifications").insert({
     user_id: targetId,
     type: "hi_received",
-    payload: { from_user_id: user.id, from_name: me?.name || "" },
+    payload: {
+      from_user_id: user.id,
+      from_name: me?.name || "",
+      shared: await sharedInterests(supabase, user.id, targetId),
+    },
   });
 
   return { ok: true };
@@ -80,6 +103,7 @@ export async function respondToRequest(requestId: string, accept: boolean): Prom
         from_name: me?.name || "",
         request_id: requestId,
         slug: updated.slug,
+        shared: await sharedInterests(supabase, user.id, updated.from_user_id as string),
       },
     });
   }
