@@ -31,12 +31,35 @@ type Notification = {
 const who = (p: Record<string, unknown>, fallback = "Someone") =>
   typeof p.from_name === "string" && p.from_name.trim() ? p.from_name.trim() : fallback;
 
-const COPY: Record<Notification["type"], { text: (p: Record<string, unknown>) => string; href: (p: Record<string, unknown>) => string }> = {
+// The second line, and only when there is something true to say. A shared
+// interest is written into the payload when the notification fires (see
+// app/actions/hi.ts); when the two of you have none in common the line is
+// simply absent rather than padded with something generic.
+const sharedLine = (p: Record<string, unknown>): string | null => {
+  const shared = Array.isArray(p.shared) ? (p.shared as unknown[]).filter((x) => typeof x === "string") : [];
+  if (shared.length === 0) return null;
+  if (shared.length === 1) return `You are both into ${shared[0]}.`;
+  return `You are both into ${shared[0]} and ${shared[1]}.`;
+};
+
+const COPY: Record<
+  Notification["type"],
+  {
+    text: (p: Record<string, unknown>) => string;
+    sub?: (p: Record<string, unknown>) => string | null;
+    href: (p: Record<string, unknown>) => string;
+  }
+> = {
   table_revealed: { text: () => "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
   ride_matched: { text: () => "Someone joined your ride.", href: () => "/matching?tab=rides" },
-  hi_received: { text: (p) => `${who(p)} requested you as a friend.`, href: () => "/people" },
+  hi_received: {
+    text: (p) => `${who(p)} requested you as a friend.`,
+    sub: sharedLine,
+    href: () => "/people",
+  },
   friend_accepted: {
-    text: (p) => `${who(p)} accepted your request. Say hi.`,
+    text: (p) => `You just connected with ${who(p)}.`,
+    sub: sharedLine,
     // Notifications written before migration 0024 carry only request_id. That
     // path still resolves, it just redirects, so old rows keep working.
     href: (p) => (p.slug ? `/dm/${p.slug}` : `/friends/${p.request_id}/chat`),
@@ -158,7 +181,10 @@ export default function NotificationBell() {
                 onClick={() => setOpen(false)}
                 style={{ opacity: n.read_at ? 0.6 : 1 }}
               >
-                {COPY[n.type].text(n.payload)}
+                <span className="notif-line">{COPY[n.type].text(n.payload)}</span>
+                {COPY[n.type].sub?.(n.payload) && (
+                  <span className="notif-sub">{COPY[n.type].sub!(n.payload)}</span>
+                )}
               </Link>
             ))
           )}
@@ -222,6 +248,13 @@ export default function NotificationBell() {
           padding: 16px 14px;
           font-size: 13px;
           color: var(--ink-3);
+        }
+        .notif-line { display: block; }
+        .notif-sub {
+          display: block;
+          margin-top: 2px;
+          font-size: 12px;
+          color: var(--ink-2);
         }
         .notif-row {
           display: block;
