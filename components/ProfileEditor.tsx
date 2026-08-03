@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { downscale } from "@/lib/avatar";
 import { saveProfile } from "@/app/actions/profile";
 import { submitFlight, startOwnPool, cancelFlight, type SubmitFlightResult } from "@/app/actions/flights";
+import FlightScanButton from "@/components/FlightScanButton";
 import RideMatchSheet, { type RideProposal } from "@/components/RideMatchSheet";
 
 type Profile = {
@@ -389,7 +390,10 @@ export default function ProfileEditor({
         </a>
         .
       </p>
-      <label className="ob-label" htmlFor="pe-arrival" style={{ marginTop: 8 }}>
+      <div style={{ marginTop: 14 }}>
+        <FlightScanButton onParsed={(direction, localDateTime) => setF({ [direction]: localDateTime })} />
+      </div>
+      <label className="ob-label" htmlFor="pe-arrival" style={{ marginTop: 0 }}>
         Landing
       </label>
       <input

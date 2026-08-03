@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toLocalInput } from "@/lib/rides";
 import type { Conference } from "@/lib/conference";
+import FlightScanButton from "@/components/FlightScanButton";
 
 type Slot = { id: string; title: string; starts_at: string };
 export type Flight = { arrival: string; departure: string };
@@ -122,6 +123,11 @@ export default function StepPlans({
         </button>
         {showFlight && (
           <div style={{ display: "flex", flexDirection: "column", marginTop: 4 }}>
+            <FlightScanButton
+              onParsed={(direction, localDateTime) =>
+                onFlightChange({ ...flight, [direction]: localDateTime })
+              }
+            />
             <label className="ob-label" htmlFor="ob-arrival" style={{ marginTop: 0 }}>
               Landing
             </label>
