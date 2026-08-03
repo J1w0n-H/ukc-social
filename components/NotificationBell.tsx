@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Notification = {
@@ -44,6 +45,15 @@ export default function NotificationBell() {
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const unread = items.filter((n) => !n.read_at).length;
+  const pathname = usePathname();
+
+  // Close on navigation. Following a notification already closed the panel,
+  // but the bell lives in the status bar and so outlives every page under it:
+  // opening it and then tapping a tab left it hanging over the screen you had
+  // just moved to, with no obvious way back except the bell itself.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     let active = true;
