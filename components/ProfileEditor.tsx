@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { downscale } from "@/lib/avatar";
+import AvatarCropper from "@/components/AvatarCropper";
 import { saveProfile } from "@/app/actions/profile";
 import { submitFlight, startOwnPool, cancelFlight, type SubmitFlightResult } from "@/app/actions/flights";
 import FlightScanButton from "@/components/FlightScanButton";
@@ -70,6 +70,9 @@ export default function ProfileEditor({
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(false);
   const [upload, setUpload] = useState<"idle" | "uploading" | "error">("idle");
+  // The picked file waits here while you frame it. Nothing is uploaded until
+  // the cropper hands back a square.
+  const [picked, setPicked] = useState<File | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [proposals, setProposals] = useState<RideProposal[]>([]);
@@ -82,13 +85,10 @@ export default function ProfileEditor({
     setTimeout(() => setToast(null), 2600);
   }
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  async function uploadBlob(blob: Blob) {
+    setPicked(null);
     setUpload("uploading");
     try {
-      const blob = await downscale(file);
       const supabase = createClient();
       const path = `${userId}/avatar.jpg`;
       const { error: upErr } = await supabase.storage
@@ -314,8 +314,21 @@ export default function ProfileEditor({
             </span>
           )}
         </button>
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) setPicked(file);
+          }}
+        />
       </div>
+      {picked && (
+        <AvatarCropper file={picked} onCancel={() => setPicked(null)} onDone={uploadBlob} />
+      )}
       {upload === "error" && (
         <p style={{ textAlign: "center", fontSize: 13, color: "var(--danger)", marginBottom: 8 }}>
           Upload failed.{" "}
