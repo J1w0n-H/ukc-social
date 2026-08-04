@@ -25,18 +25,33 @@ type Notification = {
 // ride message opens the thread itself, the same as a table message does, rather
 // than the list it came from.
 
-// The actor's name. Notifications written since app/actions/hi.ts started
-// storing it carry from_name; older ones carry only from_user_id, so those are
-// looked up once from the roster and passed in here. "Someone" is the last
-// resort, for a row with neither.
+// Whoever the notification is about, when it is about someone. Their photo is
+// never in the payload, and older rows have no from_name either, so both come
+// from the roster; the payload's own name still wins when it is there.
+type Person = { name: string; photo: string | null };
+
+const actorId = (p: Record<string, unknown>): string | null => {
+  for (const k of ["from_user_id", "joined_user_id"]) {
+    if (typeof p[k] === "string" && p[k]) return p[k] as string;
+  }
+  return null;
+};
+
+// "Someone" is the last resort, for a row with neither a stored name nor a
+// roster entry.
 const who = (
   p: Record<string, unknown>,
-  names?: Map<string, string>,
+  people?: Map<string, Person>,
   fallback = "Someone",
 ) => {
   if (typeof p.from_name === "string" && p.from_name.trim()) return p.from_name.trim();
-  const id = typeof p.from_user_id === "string" ? p.from_user_id : null;
-  return (id && names?.get(id)) || fallback;
+  const id = actorId(p);
+  return (id && people?.get(id)?.name) || fallback;
+};
+
+const initials = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 };
 
 // The second line, and only when there is something true to say. A shared
@@ -53,7 +68,7 @@ const sharedLine = (p: Record<string, unknown>): string | null => {
 const COPY: Record<
   Notification["type"],
   {
-    text: (p: Record<string, unknown>, names?: Map<string, string>) => string;
+    text: (p: Record<string, unknown>, people?: Map<string, Person>) => string;
     sub?: (p: Record<string, unknown>) => string | null;
     href: (p: Record<string, unknown>) => string;
   }
@@ -61,7 +76,7 @@ const COPY: Record<
   table_revealed: { text: () => "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
   ride_matched: { text: () => "Someone joined your ride.", href: () => "/matching?tab=rides" },
   hi_received: {
-    text: (p, names) => `${who(p, names)} requested you as a friend.`,
+    text: (p, people) => `${who(p, people)} requested you as a friend.`,
     sub: sharedLine,
     href: () => "/people",
   },
@@ -89,10 +104,9 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const unread = items.filter((n) => !n.read_at).length;
   const pathname = usePathname();
-  // Names for older notifications whose payload predates from_name. Read from
-  // directory_profiles, which is public roster data, so this needs no special
-  // grant and works for a request you have not accepted.
-  const [names, setNames] = useState<Map<string, string>>(new Map());
+  // Read from directory_profiles, which is public roster data, so this needs
+  // no special grant and works for a request you have not accepted.
+  const [people, setPeople] = useState<Map<string, Person>>(new Map());
 
   // Close on navigation. Following a notification already closed the panel,
   // but the bell lives in the status bar and so outlives every page under it:
@@ -124,20 +138,23 @@ export default function NotificationBell() {
       const rows = (data as Notification[]) ?? [];
       if (active) setItems(rows);
 
-      const missing = [
-        ...new Set(
-          rows
-            .filter((n) => !n.payload.from_name && typeof n.payload.from_user_id === "string")
-            .map((n) => n.payload.from_user_id as string),
-        ),
-      ];
-      if (missing.length) {
+      // Every actor, not just the ones missing a name: no payload has ever
+      // carried a photo, so the avatar always needs the roster.
+      const ids = [...new Set(rows.map((n) => actorId(n.payload)).filter(Boolean))] as string[];
+      if (ids.length) {
         const { data: profs } = await supabase
           .from("directory_profiles")
-          .select("id, name")
-          .in("id", missing);
+          .select("id, name, photo_url")
+          .in("id", ids);
         if (active && profs) {
-          setNames(new Map(profs.map((p) => [p.id as string, p.name as string])));
+          setPeople(
+            new Map(
+              profs.map((p) => [
+                p.id as string,
+                { name: p.name as string, photo: (p.photo_url as string | null) ?? null },
+              ]),
+            ),
+          );
         }
       }
 
@@ -161,6 +178,15 @@ export default function NotificationBell() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Clearing one row without opening it. Optimistic: the row is already gone
+  // from the unread count by the time the write lands, and a failed write just
+  // reappears on the next load.
+  async function markRead(id: string) {
+    const now = new Date().toISOString();
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: now } : n)));
+    await supabase.from("notifications").update({ read_at: now }).eq("id", id);
+  }
 
   async function markAllRead() {
     setItems((prev) => prev.map((n) => (n.read_at ? n : { ...n, read_at: new Date().toISOString() })));
@@ -203,20 +229,50 @@ export default function NotificationBell() {
           {items.length === 0 ? (
             <p className="notif-empty">Nothing yet.</p>
           ) : (
-            items.map((n) => (
-              <Link
-                key={n.id}
-                href={COPY[n.type].href(n.payload)}
-                className="notif-row"
-                onClick={() => setOpen(false)}
-                style={{ opacity: n.read_at ? 0.6 : 1 }}
-              >
-                <span className="notif-line">{COPY[n.type].text(n.payload, names)}</span>
-                {COPY[n.type].sub?.(n.payload) && (
-                  <span className="notif-sub">{COPY[n.type].sub!(n.payload)}</span>
-                )}
-              </Link>
-            ))
+            items.map((n) => {
+              const person = actorId(n.payload) ? people.get(actorId(n.payload)!) : undefined;
+              const name = who(n.payload, people, "");
+              return (
+                <div key={n.id} className="notif-row" style={{ opacity: n.read_at ? 0.6 : 1 }}>
+                  <Link
+                    href={COPY[n.type].href(n.payload)}
+                    className="notif-main"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span
+                      aria-hidden
+                      className="notif-face"
+                      style={
+                        person?.photo
+                          ? { background: `center/cover no-repeat url("${person.photo}")` }
+                          : undefined
+                      }
+                    >
+                      {!person?.photo && (name ? initials(name) : <span className="notif-face-dot" />)}
+                    </span>
+                    <span className="notif-text">
+                      <span className="notif-line">{COPY[n.type].text(n.payload, people)}</span>
+                      {COPY[n.type].sub?.(n.payload) && (
+                        <span className="notif-sub">{COPY[n.type].sub!(n.payload)}</span>
+                      )}
+                    </span>
+                  </Link>
+                  {!n.read_at && (
+                    <button
+                      type="button"
+                      className="notif-check"
+                      aria-label="Mark as read"
+                      title="Mark as read"
+                      onClick={() => markRead(n.id)}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M4 12.5 9.5 18 20 6.5" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}
@@ -287,14 +343,60 @@ export default function NotificationBell() {
           color: var(--ink-2);
         }
         .notif-row {
-          display: block;
-          padding: 10px 14px;
-          font-size: 13px;
-          color: var(--ink);
-          text-decoration: none;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding-right: 6px;
           border-top: 1px solid var(--line);
         }
         .notif-row:first-of-type { border-top: none; }
+        .notif-main {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 0 10px 14px;
+          font-size: 13px;
+          color: var(--ink);
+          text-decoration: none;
+        }
+        .notif-text { min-width: 0; text-align: left; }
+        .notif-face {
+          flex-shrink: 0;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: 1px solid var(--line);
+          background: var(--bg);
+          color: var(--ink-2);
+          display: grid;
+          place-items: center;
+          font-size: 11px;
+          font-weight: 700;
+          overflow: hidden;
+        }
+        /* Rows with no person attached (an announcement, a table reveal) still
+           get a circle, so every line starts at the same place. */
+        .notif-face-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: var(--accent);
+        }
+        .notif-check {
+          flex-shrink: 0;
+          width: 32px;
+          height: 32px;
+          display: grid;
+          place-items: center;
+          border: none;
+          border-radius: 50%;
+          background: none;
+          color: var(--ink-3);
+          cursor: pointer;
+        }
+        .notif-check:hover { color: var(--accent); }
       `}</style>
     </div>
   );
