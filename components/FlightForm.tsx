@@ -66,7 +66,13 @@ export default function FlightForm({
 
   return (
     <div className="ff">
-      <FlightScanButton onParsed={(d, dt) => d === direction && setLocal(dt)} />
+      <FlightScanButton
+        onParsed={(d, dt) => {
+          if (d !== direction) return false;
+          setLocal(dt);
+          return true;
+        }}
+      />
 
       <label className="ff-label" htmlFor={`ff-${direction}`}>
         {direction === "arrival" ? "Landing" : "Leaving"}
