@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { cancelFlight } from "@/app/actions/flights";
+import { cancelFlight, startOwnPool } from "@/app/actions/flights";
+import FlightForm from "@/components/FlightForm";
 
 type Direction = "arrival" | "departure";
 type PoolMember = { id: string; name: string; photo_url: string | null };
@@ -23,16 +24,34 @@ export default function RidePoolCard({
   hasFlight,
   pool,
   timezone,
+  initialLocal,
+  defaultLocal,
+  windowHours,
 }: {
   direction: Direction;
   hasFlight: boolean;
   pool: Pool | null;
   timezone: string;
+  initialLocal: string;
+  defaultLocal: string;
+  windowHours: number;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
+
+  // A flight with no pool. startOwnPool is idempotent, so this is a safe way
+  // out of a state the user cannot otherwise act on.
+  function retryPool() {
+    setError("");
+    startTransition(async () => {
+      const res = await startOwnPool(direction);
+      if (res.ok) router.refresh();
+      else setError(res.error ?? "Couldn't set that up.");
+    });
+  }
 
   const fmt = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
@@ -56,14 +75,41 @@ export default function RidePoolCard({
 
   const label = direction === "arrival" ? "Arrival" : "Departure";
 
+  const flightForm = (
+    <FlightForm
+      direction={direction}
+      initialLocal={initialLocal}
+      defaultLocal={defaultLocal}
+      windowHours={windowHours}
+      timezone={timezone}
+      onClose={() => setEditing(false)}
+    />
+  );
+
   if (!hasFlight) {
     return (
       <div className="rpc-card rpc-empty">
         <div className="rpc-label">{label}</div>
-        <p className="rpc-empty-text">No {direction} posted yet.</p>
-        <Link href="/me" className="rpc-add">
-          + Add your {direction}
-        </Link>
+        {editing ? (
+          flightForm
+        ) : (
+          <>
+            <p className="rpc-empty-text">No {direction} posted yet.</p>
+            <button type="button" className="rpc-add" onClick={() => setEditing(true)}>
+              + Add your {direction}
+            </button>
+          </>
+        )}
+        <RpcStyles />
+      </div>
+    );
+  }
+
+  if (editing) {
+    return (
+      <div className="rpc-card">
+        <div className="rpc-label">{label}</div>
+        {flightForm}
         <RpcStyles />
       </div>
     );
@@ -97,9 +143,14 @@ export default function RidePoolCard({
               Open chat
             </Link>
             {!confirming ? (
-              <button type="button" className="rpc-cancel" onClick={() => setConfirming(true)}>
-                Cancel
-              </button>
+              <span className="rpc-secondary">
+                <button type="button" className="rpc-cancel" onClick={() => setEditing(true)}>
+                  Edit time
+                </button>
+                <button type="button" className="rpc-cancel" onClick={() => setConfirming(true)}>
+                  Cancel
+                </button>
+              </span>
             ) : (
               <span className="rpc-confirm">
                 Cancel this ride?{" "}
@@ -116,7 +167,20 @@ export default function RidePoolCard({
           {error && <p className="rpc-error">{error}</p>}
         </>
       ) : (
-        <p className="rpc-empty-text">Setting up your ride…</p>
+        <>
+          <p className="rpc-empty-text">
+            Your flight is saved, but no ride is set up for it yet.
+          </p>
+          <div className="rpc-actions">
+            <button type="button" className="rpc-chat" onClick={retryPool} disabled={pending}>
+              {pending ? "…" : "Set up my ride"}
+            </button>
+            <button type="button" className="rpc-cancel" onClick={() => setEditing(true)}>
+              Edit time
+            </button>
+          </div>
+          {error && <p className="rpc-error">{error}</p>}
+        </>
       )}
       <RpcStyles />
     </div>
@@ -146,7 +210,12 @@ function RpcStyles() {
         font-size: 14px;
         font-weight: 700;
         color: var(--accent);
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
       }
+      .rpc-secondary { display: flex; align-items: center; gap: 14px; }
       .rpc-time {
         font-family: var(--font-display), sans-serif;
         font-size: 22px;

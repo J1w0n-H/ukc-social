@@ -143,8 +143,11 @@ export default function TabBar() {
             flex: 0 0 auto;
             padding: 14px 0;
           }
-          /* :last-of-type, not :last-child. The inline <style> below is the
-             real last child of .tabbar, so :last-child matched nothing. */
+          /* :last-of-type, not :last-child. The inline style element below is
+             the real last child of .tabbar, so :last-child matched nothing.
+             Do not write that tag name literally here: the server escapes a
+             bare angle bracket inside style content and the client does not,
+             which mismatches hydration on every page the tab bar renders on. */
           a.tabbar__item:last-of-type {
             margin-top: auto;
           }

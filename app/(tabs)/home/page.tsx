@@ -318,7 +318,7 @@ function FillInHub({
     ) : (
       <NudgeRow
         key="rides"
-        href="/me"
+        href="/matching?tab=rides"
         icon={ICONS.ride}
         title="Split a ride from the airport"
         benefit="$60 alone. About $20 each when you share."

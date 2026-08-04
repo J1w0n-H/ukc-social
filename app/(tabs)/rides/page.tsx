@@ -1,9 +1,10 @@
 import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
+import { toLocalInput } from "@/lib/rides";
 import RidePoolCard from "./RidePoolCard";
 
 type Direction = "arrival" | "departure";
-type FlightRow = { direction: Direction; scheduled_at: string };
+type FlightRow = { direction: Direction; scheduled_at: string; window_hours: number | null };
 type PoolMember = { id: string; name: string; photo_url: string | null };
 type PoolInfo = { direction: Direction; poolId: string; pickupAt: string; members: PoolMember[] };
 
@@ -19,9 +20,17 @@ export async function RidesListSection() {
 
   const { data: flightRows } = await supabase
     .from("flights")
-    .select("direction, scheduled_at")
+    .select("direction, scheduled_at, window_hours")
     .eq("user_id", user.id);
   const flights = (flightRows ?? []) as FlightRow[];
+  const windowHours = flights.find((f) => f.window_hours)?.window_hours ?? 2;
+
+  // Conference dates as a starting point when nothing is saved, so the picker
+  // does not open on a blank year/month/day. Same reasoning as /me.
+  const defaults = {
+    arrival: conference ? `${toLocalInput(conference.starts_at, timezone).slice(0, 10)}T12:00` : "",
+    departure: conference ? `${toLocalInput(conference.ends_at, timezone).slice(0, 10)}T12:00` : "",
+  };
 
   const { data: myMembership } = await supabase.from("ride_members").select("pool_id").eq("user_id", user.id);
   const myPoolIds = (myMembership ?? []).map((m) => m.pool_id as string);
@@ -68,6 +77,9 @@ export async function RidesListSection() {
             hasFlight={!!flight}
             pool={pool ? { poolId: pool.poolId, pickupAt: pool.pickupAt, members: pool.members } : null}
             timezone={timezone}
+            initialLocal={flight ? toLocalInput(flight.scheduled_at, timezone) : ""}
+            defaultLocal={defaults[dir]}
+            windowHours={windowHours}
           />
         );
       })}
