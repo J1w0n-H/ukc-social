@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { saveProfile, setDinnerSignups } from "@/app/actions/profile";
 import { submitFlight } from "@/app/actions/flights";
 import type { Conference } from "@/lib/conference";
+import { DEFAULT_RIDE_WINDOW_HOURS } from "@/lib/rides";
 import StepEvent, { type EventChoice } from "./StepEvent";
 import StepBasics from "./StepBasics";
 import StepInterests from "./StepInterests";
@@ -103,10 +104,18 @@ export default function OnboardingClient({
     // Default search window here — onboarding doesn't have a field for it,
     // matching is proposed (not auto-joined) whenever they next visit Me.
     if (data.flight.arrival) {
-      await submitFlight({ direction: "arrival", localDateTime: data.flight.arrival, windowHours: 2 });
+      await submitFlight({
+        direction: "arrival",
+        localDateTime: data.flight.arrival,
+        windowHours: DEFAULT_RIDE_WINDOW_HOURS,
+      });
     }
     if (data.flight.departure) {
-      await submitFlight({ direction: "departure", localDateTime: data.flight.departure, windowHours: 2 });
+      await submitFlight({
+        direction: "departure",
+        localDateTime: data.flight.departure,
+        windowHours: DEFAULT_RIDE_WINDOW_HOURS,
+      });
     }
     setBusy(false);
     if (!a.ok || !b.ok)

@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
-import { toLocalInput } from "@/lib/rides";
+import { DEFAULT_RIDE_WINDOW_HOURS, toLocalInput } from "@/lib/rides";
 import RidePoolCard from "./RidePoolCard";
 
 type Direction = "arrival" | "departure";
@@ -23,7 +23,9 @@ export async function RidesListSection() {
     .select("direction, scheduled_at, window_hours")
     .eq("user_id", user.id);
   const flights = (flightRows ?? []) as FlightRow[];
-  const windowHours = flights.find((f) => f.window_hours)?.window_hours ?? 2;
+  const windowHours =
+    flights.find((f) => f.window_hours)?.window_hours ??
+    DEFAULT_RIDE_WINDOW_HOURS;
 
   // Conference dates as a starting point when nothing is saved, so the picker
   // does not open on a blank year/month/day. Same reasoning as /me.
