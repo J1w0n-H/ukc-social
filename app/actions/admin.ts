@@ -20,7 +20,7 @@ export async function runMatching(slotId: string): Promise<Result> {
   const svc = serviceClient();
   const { data: slot, error: slotErr } = await svc
     .from("slots")
-    .select("id, starts_at")
+    .select("id, starts_at, join_deadline")
     .eq("id", slotId)
     .single();
   if (slotErr || !slot) return { ok: false, error: slotErr?.message ?? "slot not found" };
