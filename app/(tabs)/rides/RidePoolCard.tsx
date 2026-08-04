@@ -123,7 +123,7 @@ export default function RidePoolCard({
           <div className="rpc-time">{fmt.format(new Date(pool.pickupAt))}</div>
           <div className="rpc-count">
             {pool.members.length === 0
-              ? "Just you so far. More may join before your flight."
+              ? "Still looking for someone to share with. You'll be matched automatically, and the group chat opens as soon as someone joins."
               : `You + ${pool.members.length} ${pool.members.length === 1 ? "other" : "others"}`}
           </div>
           {pool.members.map((m) => (
@@ -139,9 +139,16 @@ export default function RidePoolCard({
             </div>
           ))}
           <div className="rpc-actions">
-            <Link href={`/rides/${pool.poolId}/chat`} className="rpc-chat">
-              Open chat
-            </Link>
+            {/* No chat while you are the only one in the pool: it would open a
+                thread with nobody in it. The pool is the channel, so it is
+                already there the moment a second person joins. */}
+            {pool.members.length > 0 ? (
+              <Link href={`/rides/${pool.poolId}/chat`} className="rpc-chat">
+                Open chat
+              </Link>
+            ) : (
+              <span className="rpc-waiting">Waiting for a match</span>
+            )}
             {!confirming ? (
               <span className="rpc-secondary">
                 <button type="button" className="rpc-cancel" onClick={() => setEditing(true)}>
@@ -216,6 +223,14 @@ function RpcStyles() {
         cursor: pointer;
       }
       .rpc-secondary { display: flex; align-items: center; gap: 14px; }
+      .rpc-waiting {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink-3);
+      }
       .rpc-time {
         font-family: var(--font-display), sans-serif;
         font-size: 22px;
