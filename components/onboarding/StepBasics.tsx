@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { uploadAvatar } from "@/app/actions/avatar";
 import AvatarCropper from "@/components/AvatarCropper";
 import SchoolField from "@/components/SchoolField";
 import PositionField from "@/components/PositionField";
@@ -14,7 +14,6 @@ function initials(name: string) {
 }
 
 export default function StepBasics({
-  userId,
   value,
   onChange,
   onContinue,
@@ -22,7 +21,6 @@ export default function StepBasics({
   busy,
   error,
 }: {
-  userId: string;
   value: Basics;
   onChange: (p: Partial<Basics>) => void;
   onContinue: () => void;
@@ -32,6 +30,7 @@ export default function StepBasics({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [upload, setUpload] = useState<"idle" | "uploading" | "error">("idle");
+  const [uploadError, setUploadError] = useState("");
   // The picked file waits here while you frame it. Nothing is uploaded until
   // the cropper hands back a square.
   const [picked, setPicked] = useState<File | null>(null);
@@ -39,17 +38,16 @@ export default function StepBasics({
   async function uploadBlob(blob: Blob) {
     setPicked(null);
     setUpload("uploading");
+    setUploadError("");
     try {
-      const supabase = createClient();
-      const path = `${userId}/avatar.jpg`;
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      onChange({ photo_url: `${data.publicUrl}?t=${Date.now()}` });
+      const data = new FormData();
+      data.append("avatar", blob, "avatar.jpg");
+      const result = await uploadAvatar(data);
+      if (!result.ok) throw new Error(result.error);
+      onChange({ photo_url: result.url });
       setUpload("idle");
-    } catch {
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Upload failed. Please try again.");
       setUpload("error");
     }
   }
@@ -120,7 +118,7 @@ export default function StepBasics({
       )}
       {upload === "error" && (
         <p style={{ textAlign: "center", fontSize: 14, color: "var(--ink-2)", marginBottom: 4 }}>
-          Upload failed.{" "}
+          {uploadError || "Upload failed."}{" "}
           <button type="button" className="ob-textlink" onClick={() => fileRef.current?.click()}>
             Retry
           </button>{" "}

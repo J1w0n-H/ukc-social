@@ -32,10 +32,8 @@ type Data = {
 };
 
 export default function OnboardingClient({
-  userId,
   conference,
 }: {
-  userId: string;
   conference: Conference | null;
 }) {
   const router = useRouter();
@@ -178,7 +176,6 @@ export default function OnboardingClient({
       )}
       {step === 2 && (
         <StepBasics
-          userId={userId}
           value={data}
           onChange={patch}
           busy={busy}

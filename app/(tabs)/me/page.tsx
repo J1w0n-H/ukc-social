@@ -81,7 +81,6 @@ export default async function MePage() {
       </header>
 
       <ProfileEditor
-        userId={user.id}
         initial={profile}
         initialFlight={{
           arrival: arrivalFlight ? toLocalInput(arrivalFlight.scheduled_at, timezone) : "",
