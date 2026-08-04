@@ -34,7 +34,7 @@ export type Result = {
   error?: string;
 };
 type Svc = ReturnType<typeof serviceClient>;
-export type Slot = { id: string; starts_at: string };
+export type Slot = { id: string; starts_at: string; join_deadline?: string | null };
 
 // Smallest table worth seating, by headcount. Matches the `min` that matchSlot
 // and repackInvalid already enforce.
@@ -163,6 +163,10 @@ export async function matchOneSlot(
         rationale: g.rationale,
         starter_question: g.starterQuestion,
         meet_time: slot.starts_at,
+        // Seated now, shown at the moment people were already promised
+        // (migration 0026). Null would mean "revealed", so a slot with no
+        // deadline behaves exactly as it did before.
+        reveal_at: slot.join_deadline ?? null,
       })),
     )
     .select("id");
@@ -181,6 +185,9 @@ export async function matchOneSlot(
       user_id: m.user_id,
       type: "table_revealed" as const,
       payload: { group_id: m.group_id, slot_id: slot.id },
+      // Held back to the reveal alongside the group itself, or the bell would
+      // announce the table days before anyone could open it.
+      ...(slot.join_deadline ? { visible_at: slot.join_deadline } : {}),
     })),
   );
 
@@ -196,7 +203,7 @@ export async function runAllSlots(
   conference: Conference | null,
 ): Promise<{ ok: boolean; results: (Result & { slotId: string })[] }> {
   const svc = serviceClient();
-  const { data: slots, error } = await svc.from("slots").select("id, starts_at");
+  const { data: slots, error } = await svc.from("slots").select("id, starts_at, join_deadline");
   if (error) return { ok: false, results: [] };
 
   const results: (Result & { slotId: string })[] = [];
