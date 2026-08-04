@@ -2,6 +2,7 @@
 
 import { requireUser } from "@/lib/supabase/server";
 import { serviceClient } from "@/lib/supabase/service";
+import { sendFriendRequestEmail } from "@/lib/friendRequestEmail";
 
 type Result = { ok: boolean; error?: string };
 
@@ -34,9 +35,11 @@ export async function sendRequest(targetId: string): Promise<Result> {
   const { user, supabase } = await requireUser();
   if (targetId === user.id) return { ok: false, error: "That's you." };
 
-  const { error } = await supabase
+  const { data: request, error } = await supabase
     .from("hi_requests")
-    .insert({ from_user_id: user.id, to_user_id: targetId });
+    .insert({ from_user_id: user.id, to_user_id: targetId })
+    .select("id")
+    .single();
   if (error) {
     // Idempotent: asking twice is a no-op success, not an error. The unique
     // (from_user_id, to_user_id) index is what makes it one.
@@ -56,7 +59,8 @@ export async function sendRequest(targetId: string): Promise<Result> {
     .eq("id", user.id)
     .maybeSingle();
 
-  await serviceClient().from("notifications").insert({
+  const service = serviceClient();
+  await service.from("notifications").insert({
     user_id: targetId,
     type: "hi_received",
     payload: {
@@ -65,6 +69,24 @@ export async function sendRequest(targetId: string): Promise<Result> {
       shared: await sharedInterests(supabase, user.id, targetId),
     },
   });
+
+  // Supabase Auth is the source of the recipient address; it is intentionally
+  // never copied into the public profiles table. Transactional friend-request
+  // email is best-effort so an email-provider outage cannot roll back a request
+  // that already exists and is visible in the app.
+  if (request) {
+    const { data: recipient } = await service.auth.admin.getUserById(targetId);
+    if (recipient.user?.email) {
+      try {
+        await sendFriendRequestEmail({
+          recipientEmail: recipient.user.email,
+          senderName: me?.name || "Someone",
+        });
+      } catch (emailError) {
+        console.error("Friend request email failed", emailError);
+      }
+    }
+  }
 
   return { ok: true };
 }

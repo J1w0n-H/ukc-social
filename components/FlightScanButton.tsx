@@ -15,7 +15,7 @@ import { parseFlightScreenshot } from "@/app/actions/flightScan";
 export default function FlightScanButton({
   onParsed,
 }: {
-  onParsed: (direction: "arrival" | "departure", localDateTime: string) => void;
+  onParsed: (direction: "arrival" | "departure", localDateTime: string) => boolean | void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<"idle" | "reading" | "done">("idle");
@@ -32,26 +32,35 @@ export default function FlightScanButton({
       // 1400px on the long side, not the avatar default of 512: a boarding pass
       // is mostly small print, and 512 loses the flight time entirely.
       const blob = await downscale(file, 1400);
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(fr.result as string);
-        fr.onerror = () => reject(new Error("Could not read that file."));
-        fr.readAsDataURL(blob);
-      });
+      const data = new FormData();
+      data.append("image", blob, "boarding-pass.jpg");
 
-      const r = await parseFlightScreenshot(dataUrl, new Date().getFullYear());
+      const r = await parseFlightScreenshot(data, new Date().getFullYear());
       setState("idle");
       if (!r.ok) {
-        setNote(
-          r.reason === "no_key"
-            ? "Scanning is not set up yet. Enter the time below."
-            : "Could not read that one. Enter the time below.",
-        );
+        if (r.reason === "no_key") {
+          setNote("Scanning is not set up yet. Enter the time below.");
+        } else if (r.reason === "invalid_image") {
+          setNote(r.message || "Choose a valid screenshot and try again.");
+        } else if (r.reason === "error") {
+          setNote(r.message || "The scanner is unavailable. Try again or enter the time below.");
+        } else {
+          setNote("Could not find a flight time. Try a clearer screenshot.");
+        }
         return;
       }
       // Direction is the one field worth guessing at when illegible: an arrival
       // is the far more common thing to be filling in first.
-      onParsed(r.draft.direction ?? "arrival", r.draft.localDateTime!);
+      const direction = r.draft.direction ?? "arrival";
+      const applied = onParsed(direction, r.draft.localDateTime!);
+      if (applied === false) {
+        setNote(
+          direction === "arrival"
+            ? "This looks like an arrival pass. Use the Landing form."
+            : "This looks like a departure pass. Use the Leaving form.",
+        );
+        return;
+      }
       setState("done");
       setNote("Filled in below. Check it before saving.");
     } catch {

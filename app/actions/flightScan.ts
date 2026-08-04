@@ -14,13 +14,14 @@ import { getConference } from "@/lib/conference";
 // and typing a date and time into a phone is the step that gates the whole rides
 // feature, so it earns its place now by filling that.
 
-const SCAN_MODEL = "gpt-5.6-luna";
+const DEFAULT_SCAN_MODEL = "gpt-4o-mini";
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 type Draft = { direction: "arrival" | "departure" | null; localDateTime: string | null };
 
 export type ScanResult =
   | { ok: true; draft: Draft }
-  | { ok: false; reason: "no_key" | "unreadable" | "error"; message?: string };
+  | { ok: false; reason: "no_key" | "invalid_image" | "unreadable" | "error"; message?: string };
 
 // strict mode requires every key in `required` and additionalProperties false,
 // so "not legible" is expressed as an explicit null rather than an absent key.
@@ -42,15 +43,28 @@ const SCHEMA = {
 } as const;
 
 export async function parseFlightScreenshot(
-  dataUrl: string,
+  formData: FormData,
   fallbackYear: number,
 ): Promise<ScanResult> {
   const { supabase } = await requireUser();
   if (!process.env.OPENAI_API_KEY) return { ok: false, reason: "no_key" };
-  if (!dataUrl.startsWith("data:image/")) return { ok: false, reason: "error", message: "Not an image." };
+
+  const image = formData.get("image");
+  if (!(image instanceof File) || image.size === 0) {
+    return { ok: false, reason: "invalid_image", message: "No image was received." };
+  }
+  if (image.type !== "image/jpeg") {
+    return { ok: false, reason: "invalid_image", message: "The scan must be a JPEG image." };
+  }
+  if (image.size > MAX_IMAGE_BYTES) {
+    return { ok: false, reason: "invalid_image", message: "The scan is too large." };
+  }
 
   const conference = await getConference(supabase);
   const airport = conference?.airport_code || "";
+  const base64 = Buffer.from(await image.arrayBuffer()).toString("base64");
+  const dataUrl = `data:image/jpeg;base64,${base64}`;
+  const model = process.env.OPENAI_VISION_MODEL?.trim() || DEFAULT_SCAN_MODEL;
 
   const prompt = [
     "You are reading a flight ticket or boarding pass screenshot.",
@@ -65,15 +79,15 @@ export async function parseFlightScreenshot(
   ].join(" ");
 
   try {
-    const client = new OpenAI();
+    const client = new OpenAI({ timeout: 20_000, maxRetries: 1 });
     const res = await client.chat.completions.create({
-      model: SCAN_MODEL,
+      model,
       messages: [
         {
           role: "user",
           content: [
             { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: dataUrl } },
+            { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
           ],
         },
       ],

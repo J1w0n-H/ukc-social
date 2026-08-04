@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import AvatarCropper from "@/components/AvatarCropper";
 import SchoolField from "@/components/SchoolField";
 import PositionField from "@/components/PositionField";
+import { uploadAvatar } from "@/app/actions/avatar";
 import { saveProfile } from "@/app/actions/profile";
 import { submitFlight, startOwnPool, cancelFlight, type SubmitFlightResult } from "@/app/actions/flights";
 import FlightScanButton from "@/components/FlightScanButton";
@@ -46,14 +47,12 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 export default function ProfileEditor({
-  userId,
   initial,
   initialFlight,
   flightDefaults,
   initialWindowHours,
   timezone = "America/New_York",
 }: {
-  userId: string;
   initial: Profile;
   initialFlight: Flight;
   flightDefaults: Flight;
@@ -72,6 +71,7 @@ export default function ProfileEditor({
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(false);
   const [upload, setUpload] = useState<"idle" | "uploading" | "error">("idle");
+  const [uploadError, setUploadError] = useState("");
   // The picked file waits here while you frame it. Nothing is uploaded until
   // the cropper hands back a square.
   const [picked, setPicked] = useState<File | null>(null);
@@ -90,17 +90,16 @@ export default function ProfileEditor({
   async function uploadBlob(blob: Blob) {
     setPicked(null);
     setUpload("uploading");
+    setUploadError("");
     try {
-      const supabase = createClient();
-      const path = `${userId}/avatar.jpg`;
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      set({ photo_url: `${data.publicUrl}?t=${Date.now()}` });
+      const data = new FormData();
+      data.append("avatar", blob, "avatar.jpg");
+      const result = await uploadAvatar(data);
+      if (!result.ok) throw new Error(result.error);
+      set({ photo_url: result.url });
       setUpload("idle");
-    } catch {
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Upload failed. Please try again.");
       setUpload("error");
     }
   }
@@ -193,8 +192,10 @@ export default function ProfileEditor({
           <div
             aria-hidden
             style={{
+              flex: "0 0 72px",
               width: 72,
               height: 72,
+              aspectRatio: "1 / 1",
               borderRadius: "50%",
               border: "1px solid var(--line)",
               background: form.photo_url
@@ -285,8 +286,12 @@ export default function ProfileEditor({
           aria-label="Change profile photo"
           style={{
             position: "relative",
+            flex: "0 0 96px",
             width: 96,
             height: 96,
+            aspectRatio: "1 / 1",
+            boxSizing: "border-box",
+            padding: 0,
             borderRadius: "50%",
             border: "1px solid var(--line)",
             background: form.photo_url
@@ -333,7 +338,7 @@ export default function ProfileEditor({
       )}
       {upload === "error" && (
         <p style={{ textAlign: "center", fontSize: 13, color: "var(--danger)", marginBottom: 8 }}>
-          Upload failed.{" "}
+          {uploadError || "Upload failed."}{" "}
           <button
             type="button"
             onClick={() => fileRef.current?.click()}

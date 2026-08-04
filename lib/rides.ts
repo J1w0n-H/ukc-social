@@ -7,6 +7,7 @@
 // and passed in by callers instead.
 
 export type Direction = "arrival" | "departure";
+export const DEFAULT_RIDE_WINDOW_HOURS = 1;
 
 // Matching (lib/rideMatch.ts) only ever goes by time — flight number/airline/
 // city were display-only in the old browse-and-join board and never used for
