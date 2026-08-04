@@ -540,17 +540,26 @@ function PeStyles() {
         cursor: pointer;
       }
       .pe-edit-btn::after { content: " ▸"; }
+      /* Left-aligned and text-only, the same shape as Edit profile above it.
+         As a full-width centred block it was the widest control on the page,
+         which gave the rarest and least recoverable action the most weight. */
       .pe-signout {
-        display: block;
-        width: 100%;
-        margin-top: 12px;
-        padding: 13px;
-        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        margin-top: 4px;
+        /* Both actions are inline, so without this they butt up against each
+           other and read as one phrase. */
+        margin-left: 22px;
+        padding: 0 2px;
         font-size: 15px;
         font-weight: 600;
-        color: var(--ink-2);
+        border: none;
+        color: var(--ink-3);
         background: none;
+        cursor: pointer;
       }
+      .pe-signout:hover { color: var(--ink); }
       .pe-cancel {
         padding: 14px 20px;
         border-radius: 12px;
