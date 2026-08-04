@@ -13,7 +13,15 @@
   --line: #1c2733;
   --ink: #f2f6fa;
   --ink-2: #8ca0b8;
-  --ink-3: #5c7086;
+  /* Same hue and saturation as before, lifted until it passes AA. At #5c7086
+     this sat at 3.69:1 on --bg and 3.36:1 on --surface, and it is used almost
+     exclusively for 11-13px labels, which need 4.5:1. Raising the token fixes
+     every one of those at once rather than patching them site by site.
+     Now 5.00:1 on --bg and 4.56:1 on --surface. */
+  --ink-3: #70869d;
+  /* The sticky day bar's height, shared so the desktop rail can start below it
+     instead of guessing. */
+  --statusbar-h: 40px;
   --accent: #4fd1e8;
   --accent-grad: linear-gradient(135deg, #7ce6f2, #2e9fc9);
   --accent-ink: #06222b;
@@ -244,7 +252,7 @@ h3 {
      the bar lands at 40 rather than stacking 8 + 40 + 8 and arriving at 57.
      min-height keeps that same 40 on the signed-out bar, which has no bell. */
   padding: 0 16px env(safe-area-inset-top);
-  min-height: 40px;
+  min-height: var(--statusbar-h);
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   color: var(--ink-2);

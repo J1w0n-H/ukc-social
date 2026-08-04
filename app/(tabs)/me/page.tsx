@@ -140,11 +140,13 @@ export default async function MePage() {
       </div>
 
       <style>{`
+        /* Matches Home's .hub-head and Schedule's .board-label. This was the
+           one screen setting its section labels in tracked uppercase, which
+           made three shouted eyebrows on a page whose content is a profile,
+           and made Me look like a different app from Home. */
         .sec-h {
           font-size: 13px;
-          font-weight: 700;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
+          font-weight: 600;
           color: var(--ink-3);
         }
         .list-row {

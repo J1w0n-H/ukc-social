@@ -106,6 +106,8 @@ function FriendAction({
   );
 }
 
+const SAME_SCHOOL = "Goes to the same school";
+
 // The shape of an hi_requests row, read from either side of the pair.
 type HiRow = { id: string; slug: string | null; from_user_id: string; status: string };
 
@@ -310,7 +312,7 @@ export default function PeopleBrowser({
   const badgeOf = (p: Person): string | null => {
     const rel = relationOf(p);
     if (rel && rel !== "same") return STAY_LABEL[rel];
-    if (mySchool && normalizeSchool(p.school) === mySchool) return "Goes to the same school";
+    if (mySchool && normalizeSchool(p.school) === mySchool) return SAME_SCHOOL;
     return rel ? STAY_LABEL[rel] : null;
   };
 
@@ -501,7 +503,11 @@ export default function PeopleBrowser({
         </div>
       )}
 
-      {allSchools.length > 0 && (
+      {/* Two or more, not one or more. A row offering the only school anyone
+          is from filters nothing; it is a whole strip of chrome above the list
+          that cannot change what the list shows. It comes back on its own as
+          soon as a second school appears. */}
+      {allSchools.length > 1 && (
         <div className="chip-row">
           {allSchools.map((school) => {
             const on = activeSchool === school;
@@ -551,6 +557,9 @@ export default function PeopleBrowser({
           {filtered.map((person) => {
             const badge = badgeOf(person);
             const isMe = person.id === meId;
+            // Your own row shows no badge, so it must keep its school: the
+            // line is only redundant when the badge is actually there to say it.
+            const showsSameSchool = !isMe && badge === SAME_SCHOOL;
             return (
               <div key={person.id} className="person-row">
                 <button
@@ -580,9 +589,13 @@ export default function PeopleBrowser({
                     >
                       {/* Position first: it is the short half, and the action
                           button on the right leaves little room, so leading
-                          with the school truncated the stage away entirely. */}
-                      {[person.position, person.school].filter(Boolean).join(" · ") ||
-                        "Not set"}
+                          with the school truncated the stage away entirely.
+                          The school drops out when the badge underneath is
+                          already saying you share it, rather than printing the
+                          same institution twice in two lines. */}
+                      {[person.position, showsSameSchool ? "" : person.school]
+                        .filter(Boolean)
+                        .join(" · ") || "Not set"}
                     </div>
                     {badge && !isMe && <div className="stay-badge">{badge}</div>}
                   </div>

@@ -129,7 +129,11 @@ export default function TabBar() {
            NotificationBell (positioned separately, see app/globals.css). */
         @media (min-width: 1024px) {
           .tabbar {
-            top: 0;
+            /* Below the day bar, not under it. The bar is sticky, full width
+               and z-index 55, so a rail starting at 0 had its first icon cut
+               in half by it, and that icon is the active tab on the first
+               screen people land on. */
+            top: calc(var(--statusbar-h) + env(safe-area-inset-top));
             bottom: 0;
             right: auto;
             width: 64px;

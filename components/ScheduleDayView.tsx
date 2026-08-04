@@ -118,37 +118,22 @@ export default function ScheduleDayView({
              is what made this screen look unlike the rest of the app: a date
              pill twice as wide as its own content. */
           flex: 1 0 auto;
-          min-width: 56px;
-          max-width: 88px;
+          min-width: 48px;
+          max-width: 72px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 3px;
-          padding: 8px 6px 6px;
-          /* No border on the unselected days. Five outlined pills next to an
-             outlined note and an outlined table was the whole screen saying the
-             same thing eight times. The selected day is the only marked one,
-             which is also the only thing the row has to communicate. */
-          border: 1px solid transparent;
-          border-radius: 12px;
+          gap: 4px;
+          padding: 2px 4px 4px;
+          border: none;
           background: none;
-          /* --ink-2, not --ink-3: the weekday label is 11px, and --ink-3 sits
-             at 3.7:1 on this background, under the 4.5:1 small text needs. */
           color: var(--ink-2);
           cursor: pointer;
-          transition: background 160ms ease-out, color 160ms ease-out;
-        }
-        .day-chip:hover:not([aria-selected="true"]) {
-          background: color-mix(in srgb, var(--ink) 6%, transparent);
-          color: var(--ink);
         }
         .day-chip:focus-visible {
           outline: 2px solid var(--accent);
           outline-offset: 2px;
-        }
-        .day-chip[aria-selected="true"] {
-          background: var(--accent);
-          color: var(--accent-ink);
+          border-radius: 10px;
         }
         .day-chip__wd {
           font-size: 11px;
@@ -156,7 +141,30 @@ export default function ScheduleDayView({
           text-transform: uppercase;
           letter-spacing: 0.04em;
         }
-        .day-chip__d { font-size: 16px; font-weight: 700; }
+        /* The selection marker is a disc behind the number, not a fill behind
+           the whole chip. Painting the entire 56x62 cell made the date picker
+           the loudest thing on a page whose actual subject is the agenda below
+           it, louder than the title. Same signal, about a quarter of the ink,
+           and it matches the hairline idiom the rest of the app uses. */
+        .day-chip__d {
+          display: grid;
+          place-items: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 999px;
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--ink);
+          font-variant-numeric: tabular-nums;
+          transition: background 160ms ease-out, color 160ms ease-out;
+        }
+        .day-chip:hover:not([aria-selected="true"]) .day-chip__d {
+          background: color-mix(in srgb, var(--ink) 10%, transparent);
+        }
+        .day-chip[aria-selected="true"] .day-chip__d {
+          background: var(--accent);
+          color: var(--accent-ink);
+        }
         .day-chip__today {
           width: 4px;
           height: 4px;
@@ -164,9 +172,6 @@ export default function ScheduleDayView({
           background: transparent;
         }
         .day-chip__today[data-today="true"] { background: var(--accent); }
-        .day-chip[aria-selected="true"] .day-chip__today[data-today="true"] {
-          background: var(--accent-ink);
-        }
 
         /* Hairline-separated rows and no surrounding card, the same list idiom
            홈 already uses for "Line these up". An agenda is a list, and the
@@ -218,7 +223,7 @@ export default function ScheduleDayView({
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .day-chip { transition: none; }
+          .day-chip__d { transition: none; }
         }
       `}</style>
     </div>

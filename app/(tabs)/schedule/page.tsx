@@ -9,7 +9,7 @@ export default async function BoardPage() {
   const timezone = conference?.timezone ?? "America/New_York";
 
   const announcementBody =
-    conference?.announcement?.trim() || `Welcome to ${conference?.name ?? "Icebreaker"}! 👋`;
+    conference?.announcement?.trim() || `Welcome to ${conference?.name ?? "Icebreaker"}.`;
 
   const { data: rows } = await supabase
     .from("schedule_items")
