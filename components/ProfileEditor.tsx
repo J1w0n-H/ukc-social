@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AvatarCropper from "@/components/AvatarCropper";
+import SchoolField from "@/components/SchoolField";
 import { saveProfile } from "@/app/actions/profile";
 import { submitFlight, startOwnPool, cancelFlight, type SubmitFlightResult } from "@/app/actions/flights";
 import FlightScanButton from "@/components/FlightScanButton";
@@ -345,7 +346,7 @@ export default function ProfileEditor({
       <Label>Name</Label>
       <input className="ob-field" value={form.name} onChange={(e) => set({ name: e.target.value })} />
       <Label>School / Company</Label>
-      <input className="ob-field" value={form.school} onChange={(e) => set({ school: e.target.value })} />
+      <SchoolField value={form.school} onChange={(school) => set({ school })} />
       <Label>Position</Label>
       <input className="ob-field" value={form.position} onChange={(e) => set({ position: e.target.value })} />
 
