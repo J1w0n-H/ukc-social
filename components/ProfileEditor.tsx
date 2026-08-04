@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AvatarCropper from "@/components/AvatarCropper";
 import SchoolField from "@/components/SchoolField";
+import PositionField from "@/components/PositionField";
 import { saveProfile } from "@/app/actions/profile";
 import { submitFlight, startOwnPool, cancelFlight, type SubmitFlightResult } from "@/app/actions/flights";
 import FlightScanButton from "@/components/FlightScanButton";
@@ -348,7 +349,7 @@ export default function ProfileEditor({
       <Label>School / Company</Label>
       <SchoolField value={form.school} onChange={(school) => set({ school })} />
       <Label>Position</Label>
-      <input className="ob-field" value={form.position} onChange={(e) => set({ position: e.target.value })} />
+      <PositionField value={form.position} onChange={(position) => set({ position })} />
 
       <Label>Interests</Label>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>

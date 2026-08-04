@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { sendRequest, respondToRequest, removeRequest } from "@/app/actions/hi";
 import { stayRelation, STAY_LABEL, type StayWindow } from "@/lib/stay";
+import { normalizeSchool } from "@/lib/schools";
 
 export type Person = {
   id: string;
@@ -21,6 +22,97 @@ export type Person = {
 function initials(name: string) {
   const p = name.trim().split(/\s+/).filter(Boolean);
   return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase() || "·";
+}
+
+const Torso = () => (
+  <>
+    <circle cx="9" cy="8" r="3.4" />
+    <path d="M2.6 20c0-3.5 2.9-5.6 6.4-5.6s6.4 2.1 6.4 5.6" />
+  </>
+);
+
+const PersonPlus = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <Torso />
+    <path d="M18.5 8.5v5M16 11h5" />
+  </svg>
+);
+
+const PersonCheck = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <Torso />
+    <path d="M16 11l2 2 4-4" />
+  </svg>
+);
+
+const PaperPlane = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M21 3 10.5 13.5M21 3l-6.8 18-3.7-7.5L3 9.8 21 3Z" />
+  </svg>
+);
+
+// The right edge of a person's row: where you stand with them, and the way to
+// change it. Connected and sent are indicators rather than buttons, since
+// undoing either belongs in the sheet next to the rest of the relationship.
+// An incoming request opens the sheet, because accepting is a decision that
+// deserves seeing who is asking.
+function FriendAction({
+  link,
+  busy,
+  name,
+  onAdd,
+  onOpen,
+}: {
+  link: Friendship | undefined;
+  busy: boolean;
+  name: string;
+  onAdd: () => void;
+  onOpen: () => void;
+}) {
+  if (link?.state === "friends") {
+    return (
+      <span className="fa fa--on" title="Connected" aria-label={`Connected with ${name}`}>
+        <PersonCheck />
+      </span>
+    );
+  }
+  if (link?.state === "outgoing") {
+    return (
+      <span className="fa fa--sent" title="Request sent" aria-label={`Request sent to ${name}`}>
+        <PaperPlane />
+      </span>
+    );
+  }
+  if (link?.state === "incoming") {
+    return (
+      <button type="button" className="fa fa--respond" onClick={onOpen}>
+        Respond
+      </button>
+    );
+  }
+  // "declined" lands here too: it is not a permanent no, and removeRequest
+  // deletes the row, so asking again stays possible.
+  return (
+    <button
+      type="button"
+      className="fa fa--add"
+      onClick={onAdd}
+      disabled={busy}
+      title={`Add ${name}`}
+      aria-label={`Add ${name} as a friend`}
+    >
+      <PersonPlus />
+    </button>
+  );
+}
+
+// The shape of an hi_requests row, read from either side of the pair.
+type HiRow = { id: string; slug: string | null; from_user_id: string; status: string };
+
+function toFriendship(r: HiRow, meId: string): Friendship {
+  if (r.status === "accepted") return { state: "friends", id: r.id, slug: r.slug as string };
+  if (r.status === "declined") return { state: "declined" };
+  return r.from_user_id === meId ? { state: "outgoing", id: r.id } : { state: "incoming", id: r.id };
 }
 
 function Avatar({ person, size }: { person: Person; size: number }) {
@@ -133,6 +225,9 @@ export default function PeopleBrowser({
   const [contacts, setContacts] = useState<Contacts>({ state: "loading" });
   const [friend, setFriend] = useState<Friendship>({ state: "loading" });
   const [busy, setBusy] = useState(false);
+  const [links, setLinks] = useState<Map<string, Friendship>>(new Map());
+  // Which row's add button is mid-flight, so only that one shows it.
+  const [adding, setAdding] = useState<string | null>(null);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<Element | null>(null);
@@ -196,6 +291,29 @@ export default function PeopleBrowser({
   const relationOf = (p: Person) =>
     stayRelation({ start: p.stay_start, end: p.stay_end }, myStay);
 
+  // Your own row is in the list, so your school comes from there rather than
+  // another prop threaded down from the page.
+  const mySchool = useMemo(
+    () => normalizeSchool(people.find((p) => p.id === meId)?.school ?? ""),
+    [people, meId],
+  );
+
+  // What to say about this person in one line. Sharing a school beats sharing
+  // dates: at a conference nearly everyone is here the same days, so that line
+  // carries almost nothing, while a shared school is an actual reason to say
+  // hello. Arriving early, staying late and not overlapping still come first,
+  // since those decide whether you can meet at all.
+  //
+  // Compared through normalizeSchool rather than by exact string: the picker
+  // canonicalises new entries, but anything typed before it landed, or typed
+  // past it, still has to match.
+  const badgeOf = (p: Person): string | null => {
+    const rel = relationOf(p);
+    if (rel && rel !== "same") return STAY_LABEL[rel];
+    if (mySchool && normalizeSchool(p.school) === mySchool) return "Goes to the same school";
+    return rel ? STAY_LABEL[rel] : null;
+  };
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return people.filter((p) => {
@@ -209,6 +327,31 @@ export default function PeopleBrowser({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [people, query, activeInterest, activeSchool, activeStay, myStay]);
+
+  // Where you stand with everyone, for the indicator on each row. One query no
+  // matter how big the directory gets: hi_sel already restricts the table to
+  // rows you are a party to, so this returns your requests and nobody else's.
+  // The sheet still re-reads a single pair, because it needs the row fresh
+  // immediately after acting on it.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("hi_requests")
+        .select("id, slug, from_user_id, to_user_id, status");
+      if (!alive || !data) return;
+      const m = new Map<string, Friendship>();
+      for (const r of data as (HiRow & { to_user_id: string })[]) {
+        const other = r.from_user_id === meId ? r.to_user_id : r.from_user_id;
+        m.set(other, toFriendship(r, meId));
+      }
+      setLinks(m);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [meId]);
 
   const active = people.find((p) => p.id === openId) ?? null;
 
@@ -290,8 +433,20 @@ export default function PeopleBrowser({
     if (r.ok) {
       const [, f] = await Promise.all([loadContacts(personId), loadFriendship(personId)]);
       setFriend(f);
+      setLinks((m) => new Map(m).set(personId, f));
     }
     setBusy(false);
+  }
+
+  // Sending from the list, without opening anyone. Re-reads the pair rather
+  // than assuming the result, so the row carries the real request id.
+  async function addFriend(personId: string) {
+    setAdding(personId);
+    const res = await sendRequest(personId);
+    if (res.ok) setLinks((m) => new Map(m).set(personId, { state: "outgoing", id: "" }));
+    const f = await loadFriendship(personId);
+    setLinks((m) => new Map(m).set(personId, f));
+    setAdding(null);
   }
 
   const STAY_FILTERS: { id: StayFilter; label: string }[] = [
@@ -394,7 +549,7 @@ export default function PeopleBrowser({
       ) : (
         <div className="ppl-grid">
           {filtered.map((person) => {
-            const rel = relationOf(person);
+            const badge = badgeOf(person);
             const isMe = person.id === meId;
             return (
               <div key={person.id} className="person-row">
@@ -423,12 +578,24 @@ export default function PeopleBrowser({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {[person.school, person.position].filter(Boolean).join(" · ") ||
+                      {/* Position first: it is the short half, and the action
+                          button on the right leaves little room, so leading
+                          with the school truncated the stage away entirely. */}
+                      {[person.position, person.school].filter(Boolean).join(" · ") ||
                         "Not set"}
                     </div>
-                    {rel && !isMe && <div className="stay-badge">{STAY_LABEL[rel]}</div>}
+                    {badge && !isMe && <div className="stay-badge">{badge}</div>}
                   </div>
                 </button>
+                {!isMe && (
+                  <FriendAction
+                    link={links.get(person.id)}
+                    busy={adding === person.id}
+                    name={person.name || "them"}
+                    onAdd={() => addFriend(person.id)}
+                    onOpen={() => openSheet(person)}
+                  />
+                )}
               </div>
             );
           })}
@@ -767,6 +934,33 @@ export default function PeopleBrowser({
           border-bottom: 1px solid var(--line);
         }
         .person-row:last-child { border-bottom: none; }
+        .fa {
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 999px;
+          border: 1px solid var(--line);
+          background: none;
+        }
+        .fa--add { color: var(--accent); cursor: pointer; }
+        .fa--add:disabled { opacity: 0.5; cursor: default; }
+        .fa--on {
+          color: var(--accent-ink);
+          background: var(--accent);
+          border-color: var(--accent);
+        }
+        .fa--sent { color: var(--ink-3); }
+        .fa--respond {
+          width: auto;
+          padding: 0 14px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--accent);
+          border-color: var(--accent);
+          cursor: pointer;
+        }
         /* Desktop web layout: single-column hairline list -> 3-col card grid.
            Same data/rows, just laid out as cards instead of dividers. */
         @media (min-width: 1024px) {
