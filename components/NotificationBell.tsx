@@ -74,7 +74,13 @@ const COPY: Record<
   }
 > = {
   table_revealed: { text: () => "Your table is set. Say hi.", href: (p) => `/groups/${p.group_id}` },
-  ride_matched: { text: () => "Someone joined your ride.", href: () => "/matching?tab=rides" },
+  // Names the joiner (actorId reads joined_user_id) and opens the thread they
+  // just made possible, rather than the list it came from. Older rows carry no
+  // pool_id, so those still land on the Rides segment.
+  ride_matched: {
+    text: (p, people) => `${who(p, people)} joined your ride. You can chat now.`,
+    href: (p) => (p.pool_id ? `/rides/${p.pool_id}/chat` : "/matching?tab=rides"),
+  },
   hi_received: {
     text: (p, people) => `${who(p, people)} requested you as a friend.`,
     sub: sharedLine,
