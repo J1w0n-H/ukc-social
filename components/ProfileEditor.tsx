@@ -193,8 +193,10 @@ export default function ProfileEditor({
           <div
             aria-hidden
             style={{
+              flex: "0 0 72px",
               width: 72,
               height: 72,
+              aspectRatio: "1 / 1",
               borderRadius: "50%",
               border: "1px solid var(--line)",
               background: form.photo_url
@@ -285,8 +287,12 @@ export default function ProfileEditor({
           aria-label="Change profile photo"
           style={{
             position: "relative",
+            flex: "0 0 96px",
             width: 96,
             height: 96,
+            aspectRatio: "1 / 1",
+            boxSizing: "border-box",
+            padding: 0,
             borderRadius: "50%",
             border: "1px solid var(--line)",
             background: form.photo_url
