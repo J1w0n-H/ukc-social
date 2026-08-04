@@ -5,7 +5,10 @@
 // Pipeline: classify → scorePair (every pair) → assignMentees (1:1, capped)
 //           → suggestGroups (fuse two pairs into a group).
 
-export type Role = "undergrad" | "masters" | "phd" | "industry";
+// Mirrors the options people actually pick in their profile (see lib/roles.ts).
+// Postdoc and faculty are their own roles rather than being folded into an
+// existing one, so "who mentors whom" stays readable here.
+export type Role = "undergrad" | "masters" | "phd" | "postdoc" | "faculty" | "industry";
 
 export type Person = {
   id: string;
@@ -29,7 +32,12 @@ export const WEIGHTS = {
   groupAffinityFloor: 0.4, // don't fuse two pairs below this — leave them as 1:1 duos
 } as const;
 
-const MENTOR_ROLES: ReadonlySet<Role> = new Set<Role>(["phd", "industry"]);
+const MENTOR_ROLES: ReadonlySet<Role> = new Set<Role>([
+  "phd",
+  "postdoc",
+  "faculty",
+  "industry",
+]);
 
 export const isMentor = (p: Person) => MENTOR_ROLES.has(p.role);
 export const isMentee = (p: Person) => !isMentor(p);

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import AvatarCropper from "@/components/AvatarCropper";
 import SchoolField from "@/components/SchoolField";
+import PositionField from "@/components/PositionField";
 
 type Basics = { name: string; school: string; position: string; birthday: string; photo_url: string };
 
@@ -143,13 +144,10 @@ export default function StepBasics({
         onChange={(school) => onChange({ school })}
       />
 
-      <label className="ob-label" htmlFor="ob-position">Position</label>
-      <input
-        id="ob-position"
-        className="ob-field"
+      <span className="ob-label">Position</span>
+      <PositionField
         value={value.position}
-        onChange={(e) => onChange({ position: e.target.value })}
-        placeholder="PhD, Software Engineer, …"
+        onChange={(position) => onChange({ position })}
       />
 
       <label className="ob-label" htmlFor="ob-birthday">
