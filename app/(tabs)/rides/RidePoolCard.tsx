@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cancelFlight, startOwnPool } from "@/app/actions/flights";
 import FlightForm from "@/components/FlightForm";
+import { displayName } from "@/lib/displayName";
 
 type Direction = "arrival" | "departure";
 type PoolMember = { id: string; name: string; photo_url: string | null };
@@ -135,7 +136,7 @@ export default function RidePoolCard({
               >
                 {!m.photo_url && initials(m.name)}
               </div>
-              <span>{m.name}</span>
+              <span>{displayName(m.name)}</span>
             </div>
           ))}
           <div className="rpc-actions">

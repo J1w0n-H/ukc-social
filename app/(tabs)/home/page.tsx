@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
+import { displayName, isUnnamed } from "@/lib/displayName";
 import Wordmark from "@/components/Wordmark";
 
 const HOUR = 3600_000;
@@ -433,9 +434,15 @@ function GroupmatesSection({
                       {!p.photo_url && initials(p.name)}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{p.name}</div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
+                        {displayName(p.name)}
+                      </div>
+                      {/* Someone who signed in but has not finished onboarding has
+                          no school or position either, and the row used to be a
+                          lone dash. Say what the row is waiting on instead. */}
                       <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
-                        {[p.school, p.position].filter(Boolean).join(" · ") || "—"}
+                        {[p.school, p.position].filter(Boolean).join(" · ") ||
+                          (isUnnamed(p.name) ? "Has not filled in their profile yet" : "")}
                       </div>
                       {shared.length > 0 ? (
                         <div style={{ fontSize: 13, marginTop: 3 }}>

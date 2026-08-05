@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { displayName } from "@/lib/displayName";
 
 type Member = {
   userId: string;
@@ -179,7 +180,7 @@ export default function GroupReveal({
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
                 <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}>
-                  {m.name}
+                  {displayName(m.name)}
                   {m.userId === meId && (
                     <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginLeft: 8 }}>
                       you
