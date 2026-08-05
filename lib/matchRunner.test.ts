@@ -78,13 +78,18 @@ const signup = (n: number) => ({
   },
 });
 
-const setup = (signupCount: number, seatedIds: string[]) =>
+// Everyone already seated sits at one existing table, which is what a real
+// top-up run sees: group_members rows carry the group they belong to.
+const setup = (signupCount: number, seatedIds: string[], groupId = "g-existing") =>
   makeSvc({
     "signups:select": {
       data: Array.from({ length: signupCount }, (_, i) => signup(i + 1)),
       error: null,
     },
-    "group_members:select": { data: seatedIds.map((user_id) => ({ user_id })), error: null },
+    "group_members:select": {
+      data: seatedIds.map((user_id) => ({ user_id, group_id: groupId })),
+      error: null,
+    },
     "groups:insert": insertedIds,
   });
 
@@ -150,16 +155,50 @@ describe("matchOneSlot seating", () => {
     expect(r.matcher).toBe("fallback");
   });
 
-  // The live database had exactly one unseated person on three of four slots.
-  // Seating them would have produced a table of one and told a real person
-  // their table was set.
-  it("holds back a leftover too small to be a table, instead of seating one person", async () => {
+  // The live database had exactly one unseated person on three of four slots,
+  // and on the slot whose deadline then passed they ended up at no table at
+  // all while a half empty one sat beside them. A leftover too small for its
+  // own table now joins a table that has room.
+  it("seats a lone leftover at an existing table that has room", async () => {
     const { svc, calls } = setup(6, ["u1", "u2", "u3", "u4", "u5"]);
     const r = await matchOneSlot(svc, SLOT, null);
 
     expect(r.ok).toBe(true);
     expect(r.groups).toBe(0);
+    expect(r.toppedUp).toBe(1);
+    expect(r.waiting).toBeUndefined();
+    expect(memberIds(calls)).toEqual([{ group_id: "g-existing", user_id: "u6" }]);
+    // No new table was drawn for one person.
+    expect(calls.filter((c) => c.table === "groups" && c.op === "insert")).toEqual([]);
+  });
+
+  it("tells the leftover their table is set, at the slot's own reveal", async () => {
+    const { svc, calls } = setup(6, ["u1", "u2", "u3", "u4", "u5"]);
+    await matchOneSlot(svc, { ...SLOT, join_deadline: "2026-08-06T12:00:00Z" }, null);
+
+    const notified = (calls.find((c) => c.table === "notifications")?.payload ?? []) as {
+      user_id: string;
+      type: string;
+      visible_at?: string;
+    }[];
+    expect(notified).toHaveLength(1);
+    expect(notified[0]).toMatchObject({
+      user_id: "u6",
+      type: "table_revealed",
+      visible_at: "2026-08-06T12:00:00Z",
+    });
+  });
+
+  // Only once there is genuinely nowhere to put someone does holding back come
+  // back, since a table of one is still worse than waiting.
+  it("holds a leftover back when every existing table is full", async () => {
+    const { svc, calls } = setup(7, ["u1", "u2", "u3", "u4", "u5", "u6"]);
+    const r = await matchOneSlot(svc, SLOT, null);
+
+    expect(r.ok).toBe(true);
+    expect(r.groups).toBe(0);
     expect(r.waiting).toBe(1);
+    expect(r.toppedUp).toBeUndefined();
     expect(calls.filter((c) => c.op === "insert")).toEqual([]);
   });
 
