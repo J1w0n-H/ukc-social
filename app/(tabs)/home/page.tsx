@@ -374,7 +374,11 @@ function GroupmatesSection({
           No one yet. Join a dinner and get matched to see your tablemates here.
         </p>
       ) : (
-        tables.map((t) => (
+        // Same hairline list as "Line these up" below: each row rules off the
+        // top, the wrapper closes the bottom. Boxing the tables made them read
+        // as a different kind of thing than everything else on the page.
+        <div className="hub-list">
+        {tables.map((t) => (
           <div key={t.groupId} className="table-card">
             <div className="table-card__head">
               <div style={{ minWidth: 0 }}>
@@ -453,7 +457,8 @@ function GroupmatesSection({
               })
             )}
           </div>
-        ))
+        ))}
+        </div>
       )}
     </div>
   );
@@ -651,12 +656,9 @@ function LinkStyles() {
         margin-bottom: 4px;
       }
       .table-card {
-        margin-top: 12px;
-        padding: 14px 16px;
-        border: 1px solid var(--line);
-        border-radius: 14px;
+        padding: 16px 0;
+        border-top: 1px solid var(--line);
       }
-      .table-card + .table-card { margin-top: 12px; }
       .table-card__head {
         display: flex;
         align-items: flex-start;
