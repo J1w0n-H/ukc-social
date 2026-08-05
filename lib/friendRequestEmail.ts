@@ -20,17 +20,16 @@ export function friendRequestEmail(
   const safeSender = escapeHtml(sender);
   const safeUrl = escapeHtml(appUrl);
 
+  // Plain and short on purpose. A notification's whole job is to say who and
+  // give a way in, and a light background survives every mail client, where a
+  // dark card gets inverted or washed out by a few of them.
   return {
-    subject: `${sender} added you as a friend on UKC Icebreaker`,
-    text: `${sender} added you as a friend! Get on UKC Icebreaker to find out and respond: ${appUrl}`,
+    subject: `${sender} sent you a friend request`,
+    text: `${sender} sent you a friend request on UKC Icebreaker.\n\nOpen it here: ${appUrl}`,
     html: `
-      <div style="background:#0a121c;color:#f2f6fa;font-family:Arial,sans-serif;padding:32px 20px">
-        <div style="margin:0 auto;max-width:520px">
-          <p style="color:#4fd1e8;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">UKC Icebreaker</p>
-          <h1 style="font-size:26px;line-height:1.2;margin:12px 0">${safeSender} added you as a friend!</h1>
-          <p style="color:#b5c4d4;font-size:16px;line-height:1.5;margin:0 0 24px">Open UKC Icebreaker to view and respond to the request.</p>
-          <a href="${safeUrl}" style="background:#4fd1e8;border-radius:10px;color:#06222b;display:inline-block;font-size:15px;font-weight:700;padding:13px 18px;text-decoration:none">View friend request</a>
-        </div>
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#101625">
+        <p style="margin:0 0 16px">${safeSender} sent you a friend request on UKC Icebreaker.</p>
+        <p style="margin:0"><a href="${safeUrl}" style="color:#0e7c99">Open it here</a></p>
       </div>
     `.trim(),
   };

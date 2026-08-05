@@ -27,7 +27,8 @@ describe("friendRequestEmail", () => {
     const email = friendRequestEmail('Sunny <script>"', "https://example.test/people");
 
     expect(email.subject).toContain('Sunny <script>"');
-    expect(email.text).toContain("Get on UKC Icebreaker");
+    expect(email.subject).toContain("sent you a friend request");
+    expect(email.text).toContain("sent you a friend request on UKC Icebreaker");
     expect(email.text).toContain("https://example.test/people");
     expect(email.html).toContain("Sunny &lt;script&gt;&quot;");
     expect(email.html).not.toContain("<script>");
@@ -71,7 +72,7 @@ describe("sendFriendRequestEmail", () => {
     expect(sendMail).toHaveBeenCalledOnce();
     expect(sendMail.mock.calls[0][0]).toMatchObject({
       to: "friend@example.test",
-      subject: "Sunny added you as a friend on UKC Icebreaker",
+      subject: "Sunny sent you a friend request",
     });
     expect(sendMail.mock.calls[0][0].text).toContain("https://icebreaker.example/people");
   });
