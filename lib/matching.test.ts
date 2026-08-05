@@ -169,6 +169,15 @@ describe("buildMatchPrompt", () => {
     expect(p.toLowerCase()).not.toContain("cuisine");
     expect(p.toLowerCase()).not.toContain("suggested place");
   });
+  // The first live tables read like a roster summary back at the reader:
+  // "an AI and ML enthusiast, a robotics-minded consultant, and an
+  // engineering-focused graduate student". The card wants the shared thread,
+  // not a headcount of who is at it.
+  it("caps the rationale and rules out describing members one by one", () => {
+    const p = buildMatchPrompt([], { min: 4, max: 6 });
+    expect(p).toContain("12 words at most");
+    expect(p).toContain("Do not describe the members one by one");
+  });
   it("embeds the min/max seat bounds and the roster JSON", () => {
     const roster = [{ userId: "u0" }];
     const p = buildMatchPrompt(roster, { min: 4, max: 6 });
