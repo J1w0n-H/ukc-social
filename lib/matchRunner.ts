@@ -31,6 +31,9 @@ export type Result = {
   // are too few of them to make a table on their own. They get seated on the
   // next run once enough people join.
   waiting?: number;
+  // Stragglers added to a table that already existed and had room, rather than
+  // held back for a table of their own that may never fill.
+  toppedUp?: number;
   error?: string;
 };
 type Svc = ReturnType<typeof serviceClient>;
@@ -39,6 +42,82 @@ export type Slot = { id: string; starts_at: string; join_deadline?: string | nul
 // Smallest table worth seating, by headcount. Matches the `min` that matchSlot
 // and repackInvalid already enforce.
 const MIN_TABLE = 4;
+// Seat ceiling, the same `max` passed to repackInvalid below.
+const MAX_TABLE = 6;
+
+// Share of interests in common, used only to decide which of several tables
+// with room suits someone best. Same shape as lib/mentorMatch's jaccard.
+function overlap(a: string[], b: string[]): number {
+  const A = new Set(a.map((i) => i.trim().toLowerCase()).filter(Boolean));
+  const B = new Set(b.map((i) => i.trim().toLowerCase()).filter(Boolean));
+  if (!A.size || !B.size) return 0;
+  let shared = 0;
+  for (const i of A) if (B.has(i)) shared++;
+  return shared / (A.size + B.size - shared);
+}
+
+// Puts a handful of stragglers on tables that already exist and are under the
+// seat ceiling, rather than leaving them for a future run. Picks by interest
+// overlap with who is already sitting there, so a top-up still answers "why
+// this table", and falls back to the emptiest table when nothing overlaps.
+async function seatIntoExistingTables(
+  svc: Svc,
+  slot: Slot,
+  stragglers: SignupProfile[],
+  allRows: { user_id: unknown; party_size: unknown; profiles: unknown }[],
+  seatedRows: { user_id: unknown; group_id: unknown }[],
+): Promise<{ count: number; headcount: number }> {
+  const interestsOf = new Map<string, string[]>();
+  const partyOf = new Map<string, number>();
+  for (const r of allRows) {
+    const p = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) ?? {};
+    interestsOf.set(r.user_id as string, ((p as { interests?: string[] }).interests ?? []) as string[]);
+    partyOf.set(r.user_id as string, (r.party_size as number | null) ?? 1);
+  }
+
+  const tables = new Map<string, { seats: number; interests: string[] }>();
+  for (const m of seatedRows) {
+    const id = m.group_id as string;
+    const t = tables.get(id) ?? { seats: 0, interests: [] };
+    t.seats += partyOf.get(m.user_id as string) ?? 1;
+    t.interests.push(...(interestsOf.get(m.user_id as string) ?? []));
+    tables.set(id, t);
+  }
+  if (tables.size === 0) return { count: 0, headcount: 0 };
+
+  const placements: { group_id: string; user_id: string }[] = [];
+  for (const person of stragglers) {
+    const party = person.partySize ?? 1;
+    const options = [...tables.entries()].filter(([, t]) => t.seats + party <= MAX_TABLE);
+    if (!options.length) continue;
+    options.sort((a, b) => {
+      const byFit = overlap(person.interests, b[1].interests) - overlap(person.interests, a[1].interests);
+      return byFit !== 0 ? byFit : a[1].seats - b[1].seats;
+    });
+    const [id, table] = options[0];
+    table.seats += party;
+    table.interests.push(...person.interests);
+    placements.push({ group_id: id, user_id: person.userId });
+  }
+  if (!placements.length) return { count: 0, headcount: 0 };
+
+  const { error } = await svc.from("group_members").insert(placements);
+  if (error) return { count: 0, headcount: 0 };
+
+  await svc.from("notifications").insert(
+    placements.map((p) => ({
+      user_id: p.user_id,
+      type: "table_revealed" as const,
+      payload: { group_id: p.group_id, slot_id: slot.id },
+      ...(slot.join_deadline ? { visible_at: slot.join_deadline } : {}),
+    })),
+  );
+
+  return {
+    count: placements.length,
+    headcount: placements.reduce((n, p) => n + (partyOf.get(p.user_id) ?? 1), 0),
+  };
+}
 
 // Fetch signups → drop anyone already seated → match (LLM or round-robin
 // fallback) → validate → name → insert groups+members, for a single slot.
@@ -66,7 +145,7 @@ export async function matchOneSlot(
 
   const { data: seatedRows, error: seatedErr } = await svc
     .from("group_members")
-    .select("user_id, groups!inner(slot_id)")
+    .select("user_id, group_id, groups!inner(slot_id)")
     .eq("groups.slot_id", slot.id);
   if (seatedErr) return { ok: false, error: seatedErr.message };
   const seated = new Set((seatedRows ?? []).map((r) => r.user_id as string));
@@ -118,6 +197,22 @@ export async function matchOneSlot(
   // dinner rather than a leftover.
   const waiting = headcount(signups.map((s) => s.userId));
   if (alreadySeated > 0 && waiting < MIN_TABLE) {
+    // Before holding anyone back, look for a table that simply has room. A
+    // leftover this small used to wait for company that may never arrive, and
+    // on a slot whose deadline then passed those people ended up at no table
+    // at all while a half empty one sat next to them.
+    const seated = await seatIntoExistingTables(svc, slot, signups, rows ?? [], seatedRows ?? []);
+    const stillWaiting = waiting - seated.headcount;
+    if (seated.count > 0) {
+      return {
+        ok: true,
+        groups: 0,
+        excluded,
+        alreadySeated,
+        toppedUp: seated.count,
+        ...(stillWaiting > 0 ? { waiting: stillWaiting } : {}),
+      };
+    }
     return { ok: true, groups: 0, excluded, alreadySeated, waiting };
   }
 
