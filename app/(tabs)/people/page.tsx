@@ -29,11 +29,11 @@ export async function PeopleSection() {
   // there would drop that person out of their own ride roster, which is worse
   // than showing a placeholder.
   //
-  // stay_start/stay_end may not exist yet (migration 0009 pending) → degrade
-  // to no stay data rather than erroring the whole page.
+  // stay_start/stay_end (0009) and linkedin (0029) may not be on the view yet
+  // → degrade to no stay data and no LinkedIn rather than erroring the whole page.
   const { data: people, error } = await supabase
     .from("directory_profiles")
-    .select("id, name, photo_url, school, position, interests, bio, stay_start, stay_end")
+    .select("id, name, photo_url, school, position, interests, bio, stay_start, stay_end, linkedin")
     .neq("name", "")
     .order("name");
   let rows = people ?? [];
@@ -43,7 +43,7 @@ export async function PeopleSection() {
       .select("id, name, photo_url, school, position, interests, bio")
       .neq("name", "")
       .order("name");
-    rows = (fallback.data ?? []).map((p) => ({ ...p, stay_start: null, stay_end: null }));
+    rows = (fallback.data ?? []).map((p) => ({ ...p, stay_start: null, stay_end: null, linkedin: "" }));
   }
 
   const { data: me } = await supabase

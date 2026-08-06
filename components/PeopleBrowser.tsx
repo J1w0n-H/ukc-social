@@ -17,6 +17,9 @@ export type Person = {
   bio: string;
   stay_start?: string | null;
   stay_end?: string | null;
+  // Public (migration 0029), unlike kakao and instagram. Comes down with the
+  // roster, so the sheet can show it without waiting on a contacts read.
+  linkedin?: string;
 };
 
 function initials(name: string) {
@@ -193,10 +196,12 @@ function InstagramMark() {
   );
 }
 
+// LinkedIn is not in here: it is public and arrives with the roster. This is
+// only the pair that still costs an accept.
 type Contacts =
   | { state: "loading" }
   | { state: "locked" }
-  | { state: "unlocked"; kakao: string; linkedin: string; instagram: string };
+  | { state: "unlocked"; kakao: string; instagram: string };
 
 type StayFilter = "all" | "early" | "late" | "same";
 
@@ -401,13 +406,12 @@ export default function PeopleBrowser({
     if (!canSee) return setContacts({ state: "locked" });
     const { data } = await supabase
       .from("profiles")
-      .select("kakao, linkedin, instagram")
+      .select("kakao, instagram")
       .eq("id", personId)
       .maybeSingle();
     setContacts({
       state: "unlocked",
       kakao: data?.kakao ?? "",
-      linkedin: data?.linkedin ?? "",
       instagram: data?.instagram ?? "",
     });
   }
@@ -661,6 +665,27 @@ export default function PeopleBrowser({
 
             <div style={{ marginTop: 22 }}>
               <div className="field-label">Contacts</div>
+              {/* LinkedIn is already a public page, and reading it is what makes
+                  a request worth accepting, so it does not wait on one. It comes
+                  down with the roster, so it renders before the contacts read
+                  has finished and stays put whatever that read returns. */}
+              {active.id !== meId && active.linkedin ? (
+                <div className="ct-list" style={{ marginBottom: 10 }}>
+                  <a
+                    className="ct-row ct-row--link"
+                    href={
+                      active.linkedin.startsWith("http")
+                        ? active.linkedin
+                        : `https://${active.linkedin}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <LinkedInMark />
+                    <span className="ct-handle">{shortHandle(active.linkedin)}</span>
+                  </a>
+                </div>
+              ) : null}
               {contacts.state === "loading" && (
                 <div className="skel" style={{ height: 20, width: "60%" }} />
               )}
@@ -679,8 +704,8 @@ export default function PeopleBrowser({
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
                   {friend.state === "outgoing"
-                    ? "Shared once they accept"
-                    : "Connect, or share a table or ride, to see contacts"}
+                    ? "Kakao and Instagram once they accept"
+                    : "Connect, or share a table or ride, for Kakao and Instagram"}
                 </div>
               )}
               {contacts.state === "unlocked" && (
@@ -696,21 +721,6 @@ export default function PeopleBrowser({
                       <span className="ct-handle">{contacts.kakao}</span>
                     </div>
                   ) : null}
-                  {contacts.linkedin ? (
-                    <a
-                      className="ct-row ct-row--link"
-                      href={
-                        contacts.linkedin.startsWith("http")
-                          ? contacts.linkedin
-                          : `https://${contacts.linkedin}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <LinkedInMark />
-                      <span className="ct-handle">{shortHandle(contacts.linkedin)}</span>
-                    </a>
-                  ) : null}
                   {contacts.instagram ? (
                     <a
                       className="ct-row ct-row--link"
@@ -722,7 +732,7 @@ export default function PeopleBrowser({
                       <span className="ct-handle">@{contacts.instagram.replace(/^@/, "")}</span>
                     </a>
                   ) : null}
-                  {!contacts.kakao && !contacts.linkedin && !contacts.instagram && (
+                  {!contacts.kakao && !contacts.instagram && !active.linkedin && (
                     <span style={{ fontSize: 14, color: "var(--ink-2)" }}>
                       No contacts added yet.
                     </span>
