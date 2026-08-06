@@ -173,10 +173,12 @@ describe("buildMatchPrompt", () => {
   // "an AI and ML enthusiast, a robotics-minded consultant, and an
   // engineering-focused graduate student". The card wants the shared thread,
   // not a headcount of who is at it.
-  it("caps the rationale and rules out describing members one by one", () => {
+  it("caps the rationale and rules out naming or listing the members", () => {
     const p = buildMatchPrompt([], { min: 4, max: 6 });
     expect(p).toContain("12 words at most");
-    expect(p).toContain("Do not describe the members one by one");
+    expect(p).toContain('addressed to the table as "you"');
+    expect(p).toContain("Never write anyone's name in it");
+    expect(p).toContain("never describe the members one by one");
   });
   // The question ran just as long, and the length came from a made-up premise
   // wrapped around it: "if your next robotics or aerospace project had to
