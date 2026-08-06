@@ -16,8 +16,8 @@ const sizeOf = (id: string, sizes?: Map<string, number>) => sizes?.get(id) ?? 1;
 const headcountOf = (ids: string[], sizes?: Map<string, number>) =>
   ids.reduce((n, id) => n + sizeOf(id, sizes), 0);
 
-// Only ever set by roundRobinGroups() — the LLM's prompt asks for a warm,
-// specific rationale, so it never coincidentally produces this exact string.
+// Only ever set by roundRobinGroups() — the LLM's prompt asks for a line about
+// what the table shares, so it never coincidentally produces this exact string.
 // Used to tell an LLM-matched group from a round-robin/repacked one after
 // the fact, without threading a separate provenance field through everywhere.
 export const ROUND_ROBIN_RATIONALE = "Grouped to keep tables even.";
@@ -109,7 +109,7 @@ export function buildMatchPrompt(
 ): string {
   const { min, max, eventName } = opts;
   const event = eventName || "conference";
-  return `Group these ${event} attendees into dinner tables by shared research interests and vibe. Each table must seat ${min}-${max} people TOTAL. IMPORTANT: an attendee with "comesWithGroupOf": N arrives with a party of N people (including themselves), so count them as N seats and keep that whole party at one table. Every attendee appears in EXACTLY one group. Give each group a short fun name, a one-sentence "why you matched" rationale (warm, specific, mention shared interests), and a fun icebreaker question the table could open with, grounded in what they actually have in common, not generic small talk.\n\nWrite the rationale and the question in plain sentences. Do not use em dashes; use a comma, a period, or "and" instead. Both strings are shown to attendees as-is.\n\nAttendees:\n${JSON.stringify(roster, null, 1)}`;
+  return `Group these ${event} attendees into dinner tables by shared research interests and vibe. Each table must seat ${min}-${max} people TOTAL. IMPORTANT: an attendee with "comesWithGroupOf": N arrives with a party of N people (including themselves), so count them as N seats and keep that whole party at one table. Every attendee appears in EXACTLY one group. Give each group a short fun name, a rationale, and an icebreaker question the table could open with.\n\nThe rationale is one short line, 12 words at most, addressed to the table as "you" and naming only what they share, like "You all connect through robotics, controls and aerospace." Never write anyone's name in it, never describe the members one by one, and never list their titles or fields back to them.\n\nThe question is one short line too, 12 words at most, grounded in what they actually have in common and answerable straight away. Do not invent a scenario to set it up, and do not fall back on generic small talk.\n\nWrite the rationale and the question in plain sentences. Do not use em dashes; use a comma, a period, or "and" instead. Both strings are shown to attendees as-is.\n\nAttendees:\n${JSON.stringify(roster, null, 1)}`;
 }
 
 // Structured Outputs in strict mode, which is why every object carries

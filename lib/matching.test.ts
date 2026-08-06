@@ -169,6 +169,25 @@ describe("buildMatchPrompt", () => {
     expect(p.toLowerCase()).not.toContain("cuisine");
     expect(p.toLowerCase()).not.toContain("suggested place");
   });
+  // The first live tables read like a roster summary back at the reader:
+  // "an AI and ML enthusiast, a robotics-minded consultant, and an
+  // engineering-focused graduate student". The card wants the shared thread,
+  // not a headcount of who is at it.
+  it("caps the rationale and rules out naming or listing the members", () => {
+    const p = buildMatchPrompt([], { min: 4, max: 6 });
+    expect(p).toContain("12 words at most");
+    expect(p).toContain('addressed to the table as "you"');
+    expect(p).toContain("Never write anyone's name in it");
+    expect(p).toContain("never describe the members one by one");
+  });
+  // The question ran just as long, and the length came from a made-up premise
+  // wrapped around it: "if your next robotics or aerospace project had to
+  // survive a mountain expedition, what would you build?"
+  it("caps the question and rules out inventing a scenario for it", () => {
+    const p = buildMatchPrompt([], { min: 4, max: 6 });
+    expect(p).toContain("The question is one short line too");
+    expect(p).toContain("Do not invent a scenario to set it up");
+  });
   it("embeds the min/max seat bounds and the roster JSON", () => {
     const roster = [{ userId: "u0" }];
     const p = buildMatchPrompt(roster, { min: 4, max: 6 });
