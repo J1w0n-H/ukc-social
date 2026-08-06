@@ -396,6 +396,13 @@ export default function ProfileEditor({
       <input className="ob-field" value={form.kakao} onChange={(e) => set({ kakao: e.target.value })} />
       <Label>LinkedIn</Label>
       <input className="ob-field" value={form.linkedin} onChange={(e) => set({ linkedin: e.target.value })} />
+      {/* The three contact fields no longer share one rule, so the one that
+          changed says so where it is typed. Anyone who would rather not be
+          looked up can clear the field here. */}
+      <p style={{ fontSize: 13, color: "var(--ink-3)", lineHeight: 1.4, margin: "6px 0 0" }}>
+        Everyone at the conference can see this. Kakao and Instagram stay private
+        until you connect.
+      </p>
       <Label>Instagram</Label>
       <input
         className="ob-field"

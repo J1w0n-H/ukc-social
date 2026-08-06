@@ -23,7 +23,9 @@ export default function StepContact({
     <>
       <span className="ob-kicker">Set up · 4 of 5</span>
       <h1 className="ob-title">How can people reach you?</h1>
-      <p className="ob-sub">Shown only after you share a table or ride. Never public.</p>
+      {/* The three fields no longer share one rule (migration 0029), and this
+          line used to promise "Never public" for all of them. */}
+      <p className="ob-sub">Kakao and Instagram are shown only after you share a table or ride.</p>
 
       <label className="ob-label" htmlFor="ob-bio">One-line bio</label>
       <input
@@ -44,7 +46,10 @@ export default function StepContact({
       />
 
       <label className="ob-label" htmlFor="ob-linkedin">
-        LinkedIn <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>· optional</span>
+        LinkedIn{" "}
+        <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>
+          · optional, visible to everyone here
+        </span>
       </label>
       <input
         id="ob-linkedin"
