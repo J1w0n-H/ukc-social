@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/supabase/server";
 import { getConference } from "@/lib/conference";
 import { displayName, isUnnamed } from "@/lib/displayName";
 import Wordmark from "@/components/Wordmark";
+import SuggestedFriend from "@/components/SuggestedFriend";
+import { rankSuggestions, type Candidate } from "@/lib/suggestPerson";
 
 const HOUR = 3600_000;
 
@@ -25,7 +27,6 @@ type Group = {
   id: string;
   name: string;
   rationale: string;
-  starter_question: string;
   slot: Slot | null;
 };
 type TableMember = {
@@ -41,7 +42,6 @@ type TableCard = {
   groupId: string;
   tableName: string;
   rationale: string;
-  starterQuestion: string;
   slot: Slot;
   members: TableMember[];
 };
@@ -55,17 +55,18 @@ export default async function HomePage() {
 
   const { data: prof } = await supabase
     .from("profiles")
-    .select("name, interests")
+    .select("name, school, interests")
     .eq("id", user.id)
     .maybeSingle();
   if (!prof) redirect("/welcome");
   const profile = { name: prof.name ?? "" };
-  const myInterests = new Set(((prof.interests as string[]) ?? []).map((i) => i.toLowerCase()));
+  const myInterestList = (prof.interests as string[]) ?? [];
+  const myInterests = new Set(myInterestList.map((i) => i.toLowerCase()));
 
   const { data: groupRows } = await supabase
     .from("group_members")
     .select(
-      "group:groups(id, name, rationale, starter_question, slot:slots(id, title, starts_at, area, join_deadline))",
+      "group:groups(id, name, rationale, slot:slots(id, title, starts_at, area, join_deadline))",
     )
     .eq("user_id", user.id);
 
@@ -105,6 +106,27 @@ export default async function HomePage() {
   }
 
   const dayOf = nextGroup && ms(nextGroup.slot!.starts_at) - now <= 3 * HOUR;
+
+  // One person to say hi to. directory_profiles is the public roster, and
+  // hi_sel already scopes hi_requests to rows you are a party to, so the second
+  // query returns your own links and nobody else's. Anyone you have a row with
+  // in any state is out: a suggestion is not the place to re-ask someone who
+  // declined.
+  const [{ data: roster }, { data: links }] = await Promise.all([
+    supabase
+      .from("directory_profiles")
+      .select("id, name, photo_url, school, position, interests")
+      .neq("name", ""),
+    supabase.from("hi_requests").select("from_user_id, to_user_id"),
+  ]);
+  const alreadyAsked = ((links ?? []) as { from_user_id: string; to_user_id: string }[]).map((r) =>
+    r.from_user_id === user.id ? r.to_user_id : r.from_user_id,
+  );
+  const suggested = rankSuggestions(
+    { id: user.id, school: prof.school ?? "", interests: myInterestList },
+    (roster ?? []) as Candidate[],
+    alreadyAsked,
+  );
 
   // --- "Line these up" hub signals (each resilient to the pending migration) ---
   const dinnerDone = !!nextGroup || !!nextSignup;
@@ -205,7 +227,6 @@ export default async function HomePage() {
         groupId: g.id,
         tableName: g.name,
         rationale: g.rationale,
-        starterQuestion: g.starter_question,
         slot: g.slot!,
         members: membersByGroup.get(g.id) ?? [],
       }))
@@ -227,6 +248,7 @@ export default async function HomePage() {
             myInterests={myInterests}
             timezone={conference?.timezone ?? "America/New_York"}
           />
+          <SuggestedFriend people={suggested} />
           <FillInHub dinner={dinnerDone ? null : dinnerHook} ride={ride} />
         </>
       ) : (
@@ -244,6 +266,7 @@ export default async function HomePage() {
             myInterests={myInterests}
             timezone={conference?.timezone ?? "America/New_York"}
           />
+          <SuggestedFriend people={suggested} />
         </>
       )}
 
@@ -397,11 +420,9 @@ function GroupmatesSection({
                   {fmt.format(new Date(t.slot.starts_at))}
                   {t.slot.area ? ` · ${t.slot.area}` : ""}
                 </div>
-                {t.starterQuestion && (
-                  <div style={{ fontSize: 13, color: "var(--accent)", marginTop: 6, lineHeight: 1.4 }}>
-                    💬 {t.starterQuestion}
-                  </div>
-                )}
+                {/* The icebreaker question lives on the reveal, under "break the
+                    ice", where you are already looking at who is at the table.
+                    On 홈 it was a prompt you scroll past every visit. */}
                 {t.rationale && (
                   <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 6, lineHeight: 1.4 }}>
                     {t.rationale}
