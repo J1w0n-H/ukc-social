@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { sendMessage } from "@/app/actions/messages";
+import { displayName } from "@/lib/displayName";
 
 type Msg = {
   id: string;
@@ -328,7 +329,7 @@ export default function Chat({
   const stack = members.slice(0, 3);
   // "You, Min, Sarah +2" — you first, then names, capped.
   const rosterLine = (() => {
-    const names = ["You", ...others.map((m) => m.name.split(/\s+/)[0])];
+    const names = ["You", ...others.map((m) => displayName(m.name).split(/\s+/)[0])];
     const shown = names.slice(0, 3).join(", ");
     const extra = names.length - 3;
     return extra > 0 ? `${shown} +${extra}` : shown;
@@ -549,7 +550,7 @@ export default function Chat({
                 <div key={m.userId} className="roster-row">
                   <Avatar name={m.name} url={m.photo_url} size={40} />
                   <span className="roster-name">
-                    {m.userId === currentUserId ? "You" : m.name}
+                    {m.userId === currentUserId ? "You" : displayName(m.name)}
                   </span>
                 </div>
               ))}
