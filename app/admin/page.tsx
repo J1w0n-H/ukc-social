@@ -5,6 +5,7 @@ import { getConference } from "@/lib/conference";
 import AdminSlotRow from "@/components/AdminSlotRow";
 import AdminConferenceForm from "@/components/AdminConferenceForm";
 import AdminScheduleForm from "@/components/AdminScheduleForm";
+import AdminOpenAIHealth from "@/components/AdminOpenAIHealth";
 
 export default async function AdminPage() {
   const { user, supabase } = await requireUser();
@@ -43,6 +44,8 @@ export default async function AdminPage() {
         yet and leaves existing tables and their chats alone. A handful of leftovers are held
         back until there are enough of them to fill a table.
       </p>
+
+      <AdminOpenAIHealth />
 
       <AdminConferenceForm conference={conference} />
 
